@@ -77,23 +77,37 @@ def init_csv():
 def save_result(session_id, participant_id, trial_data):
     """Sauvegarde un résultat dans le fichier CSV de manière thread-safe."""
     with RESULTS_LOCK:
+        # S'assurer que le fichier existe
+        init_csv()
+        
         with open(RESULTS_FILE, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
+            
+            # Gérer les choix (peut être une liste ou None)
+            choices_str = ''
+            if 'choices' in trial_data and trial_data['choices']:
+                if isinstance(trial_data['choices'], list):
+                    choices_str = '|'.join(trial_data['choices'])
+                else:
+                    choices_str = str(trial_data['choices'])
+            
             writer.writerow([
                 session_id,
                 participant_id,
-                datetime.datetime.now().isoformat(),
-                trial_data['trial_number'],
-                trial_data['block_type'],
-                trial_data['stimulus'],
-                trial_data['response'],
-                trial_data['correct'],
-                trial_data['reaction_time'],
-                trial_data['text_color'],
-                trial_data['background_color'],
-                trial_data['is_word'],
-                '|'.join(trial_data['choices'])
+                trial_data.get('timestamp', datetime.datetime.now().isoformat()),
+                trial_data.get('trial_number', ''),
+                trial_data.get('block_type', ''),
+                trial_data.get('stimulus', ''),
+                trial_data.get('response', ''),
+                trial_data.get('correct', False),
+                trial_data.get('reaction_time', 0),
+                trial_data.get('text_color', '#000000'),
+                trial_data.get('background_color', '#ffffff'),
+                trial_data.get('is_word', False),
+                choices_str
             ])
+            
+        print(f"✅ Résultat sauvegardé: {participant_id[:8]}... - {trial_data.get('stimulus', 'N/A')} - {trial_data.get('correct', 'N/A')}")
 
 def get_choices(correct_stimulus, n=4, with_color_word=False):
     """Génère des choix très difficiles pour induire en erreur maximale."""
@@ -248,7 +262,8 @@ def submit_trial():
         'reaction_time': data.get('reaction_time'),
         'text_color': data.get('text_color'),
         'background_color': data.get('background_color'),
-        'is_word': data.get('is_word')
+        'is_word': data.get('is_word'),
+        'choices': data.get('choices', [])
     }
     
     # Sauvegarder dans le CSV
@@ -264,6 +279,7 @@ def save_result_endpoint():
     """Sauvegarde un résultat envoyé par le client."""
     try:
         data = request.json
+        print(f"📥 Réception données: {data}")
         
         # Récupérer les données du résultat
         result_data = {
@@ -276,18 +292,52 @@ def save_result_endpoint():
             'response': data.get('response', ''),
             'correct': str(data.get('correct', False)).lower(),
             'reaction_time': data.get('reactionTime', 0),
-            'text_color': '#000000',  # Valeur par défaut
-            'background_color': '#ffffff',  # Valeur par défaut
-            'is_word': str(data.get('stimulus', '') in WORDS).lower()
+            'text_color': data.get('textColor', '#000000'),
+            'background_color': data.get('backgroundColor', '#ffffff'),
+            'is_word': str(data.get('stimulus', '') in WORDS).lower(),
+            'choices': data.get('choices', [])
         }
         
         # Sauvegarder dans le CSV
         save_result(session.get('session_id', 'unknown'), session.get('participant_id', 'anonymous'), result_data)
         
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'message': 'Données sauvegardées avec succès'})
         
     except Exception as e:
-        print(f"Erreur lors de la sauvegarde: {e}")
+        print(f"❌ Erreur lors de la sauvegarde: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/test_csv')
+def test_csv():
+    """Route de test pour vérifier la création du CSV."""
+    try:
+        init_csv()
+        
+        # Créer un résultat de test
+        test_data = {
+            'timestamp': datetime.datetime.now().isoformat(),
+            'trial_number': 1,
+            'block_type': 'test',
+            'stimulus': 'test_word',
+            'response': 'test_response',
+            'correct': True,
+            'reaction_time': 500,
+            'text_color': '#000000',
+            'background_color': '#ffffff',
+            'is_word': True,
+            'choices': ['test_word', 'choice2', 'choice3', 'choice4']
+        }
+        
+        save_result('test_session', 'test_participant', test_data)
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Test CSV réussi',
+            'file_exists': os.path.exists(RESULTS_FILE),
+            'file_path': os.path.abspath(RESULTS_FILE)
+        })
+        
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/admin')
@@ -352,10 +402,38 @@ def download_results():
     if 'admin_authenticated' not in session:
         return "Accès non autorisé", 403
     
+    # S'assurer que le fichier existe
+    init_csv()
+    
     if os.path.exists(RESULTS_FILE):
-        return send_file(RESULTS_FILE, as_attachment=True, download_name=f'results_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+        filename = f'experience_results_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        return send_file(RESULTS_FILE, as_attachment=True, download_name=filename)
     else:
         return "Aucun résultat disponible", 404
+
+@app.route('/csv_status')
+def csv_status():
+    """Vérifie le statut du fichier CSV."""
+    try:
+        init_csv()
+        file_exists = os.path.exists(RESULTS_FILE)
+        file_size = os.path.getsize(RESULTS_FILE) if file_exists else 0
+        
+        # Compter les lignes
+        line_count = 0
+        if file_exists:
+            with open(RESULTS_FILE, 'r', encoding='utf-8') as f:
+                line_count = sum(1 for line in f) - 1  # -1 pour l'en-tête
+        
+        return jsonify({
+            'file_exists': file_exists,
+            'file_path': os.path.abspath(RESULTS_FILE),
+            'file_size': file_size,
+            'entries_count': max(0, line_count),
+            'last_modified': datetime.datetime.fromtimestamp(os.path.getmtime(RESULTS_FILE)).isoformat() if file_exists else None
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 def calculate_block_statistics(results):
     """Calcule les statistiques par bloc."""

@@ -3,7 +3,7 @@ class ExperimentApp {
         this.currentScreen = 'welcome-screen';
         this.currentBlock = 0;
         this.currentTrial = 0;
-        this.totalTrials = 5;
+        this.totalTrials = 10;
         this.totalBlocks = 3;
         this.blockTypes = ['bw', 'color', 'colored_bg'];
         this.blockNames = [
@@ -12,9 +12,9 @@ class ExperimentApp {
             'Bloc 3: Stimuli colorés sur fonds colorés'
         ];
         this.blockDescriptions = [
-            'Des stimuli vont apparaître en noir pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Série de 5 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
-            'Des stimuli vont apparaître en couleur pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: la couleur peut influencer votre perception !<br>Série de 5 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
-            'Des stimuli colorés vont apparaître sur des fonds colorés.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: le contraste couleur/fond peut être difficile !<br>Série de 5 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran'
+            'Des stimuli vont apparaître en noir pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
+            'Des stimuli vont apparaître en couleur pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: la couleur peut influencer votre perception !<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
+            'Des stimuli colorés vont apparaître sur des fonds colorés.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: le contraste couleur/fond peut être difficile !<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran'
         ];
         
         this.currentTrialData = null;
@@ -188,23 +188,24 @@ class ExperimentApp {
             // Cacher la croix
             document.getElementById('fixation-cross').style.display = 'none';
             
-            // Configurer l'affichage du stimulus
-            const stimulusEl = document.getElementById('stimulus-display');
-            stimulusEl.textContent = trialData.stimulus;
-            stimulusEl.style.color = trialData.text_color;
-            stimulusEl.style.display = 'block';
-            
-            // Changer la couleur de fond si nécessaire
+            // Changer la couleur de fond AVANT d'afficher le stimulus
             if (trialData.background_color !== '#FFFFFF') {
                 this.currentBackgroundColor = trialData.background_color;
                 document.body.style.setProperty('--bg-color', trialData.background_color);
                 document.body.classList.add('colored-background');
+                document.body.style.backgroundColor = trialData.background_color;
                 console.log('Fond coloré appliqué:', trialData.background_color);
             } else {
                 this.currentBackgroundColor = '#ffffff';
                 document.body.classList.remove('colored-background');
                 document.body.style.backgroundColor = '#ffffff';
             }
+            
+            // Configurer l'affichage du stimulus
+            const stimulusEl = document.getElementById('stimulus-display');
+            stimulusEl.textContent = trialData.stimulus;
+            stimulusEl.style.color = trialData.text_color;
+            stimulusEl.classList.add('visible');
             
             // Afficher pendant le temps spécifié
             setTimeout(() => {
@@ -218,15 +219,19 @@ class ExperimentApp {
     
     hideStimulus() {
         // Cacher le stimulus
-        document.getElementById('stimulus-display').style.display = 'none';
+        const stimulusEl = document.getElementById('stimulus-display');
+        stimulusEl.classList.remove('visible');
         
         // Pour le bloc 3 (colored_bg), garder le fond coloré pendant les choix
         if (this.blockTypes[this.currentBlock] === 'colored_bg') {
             // Garder la couleur de fond actuelle
             document.body.style.backgroundColor = this.currentBackgroundColor;
+            document.body.style.setProperty('--bg-color', this.currentBackgroundColor);
+            document.body.classList.add('colored-background');
         } else {
             // Pour les autres blocs, remettre le fond blanc
             document.body.style.backgroundColor = '#ffffff';
+            document.body.classList.remove('colored-background');
             this.currentBackgroundColor = '#ffffff';
         }
         
@@ -285,7 +290,7 @@ class ExperimentApp {
         
         // Envoyer la réponse au serveur
         try {
-            await fetch('/submit_response', {
+            await fetch('/submit_trial', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -295,6 +300,7 @@ class ExperimentApp {
                     block_type: this.blockTypes[this.currentBlock],
                     stimulus: this.currentTrialData.stimulus,
                     response: selectedChoice,
+                    correct: isCorrect,
                     reaction_time: reactionTime,
                     text_color: this.currentTrialData.text_color,
                     background_color: this.currentTrialData.background_color,
@@ -306,14 +312,18 @@ class ExperimentApp {
             console.error('Erreur lors de l\'envoi de la réponse:', error);
         }
         
-        // Sauvegarder localement aussi
+        // Sauvegarder localement aussi avec toutes les données
         this.results.push({
             trial: this.currentTrial,
             block: this.currentBlock,
             stimulus: this.currentTrialData.stimulus,
             response: selectedChoice,
             correct: isCorrect,
-            reactionTime: reactionTime
+            reactionTime: reactionTime,
+            textColor: this.currentTrialData.text_color,
+            backgroundColor: this.currentTrialData.background_color,
+            choices: this.currentTrialData.choices,
+            isWord: this.currentTrialData.is_word
         });
         
         // Passer au prochain essai après un court délai (sans feedback)
@@ -449,24 +459,49 @@ class ExperimentApp {
             btn.textContent = '📤 Envoi en cours...';
             btn.disabled = true;
             
-            // Envoyer tous les résultats stockés localement
+            console.log('📤 Envoi des résultats:', this.results);
+            
+            // Envoyer tous les résultats stockés localement avec plus de détails
+            let successCount = 0;
             for (let result of this.results) {
-                await fetch('/save_result', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(result)
-                });
+                try {
+                    const response = await fetch('/save_result', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            trial: result.trial,
+                            block: this.blockTypes[result.block],
+                            stimulus: result.stimulus,
+                            response: result.response,
+                            correct: result.correct,
+                            reactionTime: result.reactionTime,
+                            textColor: result.textColor || '#000000',
+                            backgroundColor: result.backgroundColor || '#ffffff',
+                            choices: result.choices || []
+                        })
+                    });
+                    
+                    const responseData = await response.json();
+                    if (responseData.success) {
+                        successCount++;
+                        console.log(`✅ Résultat ${successCount} envoyé avec succès`);
+                    } else {
+                        console.error('❌ Erreur serveur:', responseData.error);
+                    }
+                } catch (error) {
+                    console.error('❌ Erreur réseau:', error);
+                }
             }
             
             // Succès
-            btn.textContent = '✅ Résultats envoyés !';
+            btn.textContent = `✅ ${successCount}/${this.results.length} résultats envoyés !`;
             btn.style.backgroundColor = '#27ae60';
             
             // Afficher un message de confirmation
             setTimeout(() => {
-                alert('Vos résultats ont été envoyés avec succès ! Merci pour votre participation.');
+                alert(`Vos résultats ont été envoyés avec succès ! (${successCount}/${this.results.length} réussites)\nMerci pour votre participation.`);
             }, 500);
             
         } catch (error) {
