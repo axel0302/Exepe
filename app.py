@@ -305,14 +305,88 @@ def submit_response():
         'correct': trial_data['correct']
     })
 
+@app.route('/admin')
+def admin_login():
+    """Page de connexion administrateur."""
+    return render_template('admin_login.html')
+
+@app.route('/admin/dashboard', methods=['GET', 'POST'])
+def admin_dashboard():
+    """Tableau de bord administrateur avec tous les résultats."""
+    # Protection basique - vous pouvez améliorer cela
+    if request.method == 'POST':
+        password = request.form.get('password')
+        if password != 'admin123':  # Changez ce mot de passe !
+            return render_template('admin_login.html', error='Mot de passe incorrect')
+    elif 'admin_authenticated' not in session:
+        return render_template('admin_login.html')
+    
+    session['admin_authenticated'] = True
+    
+    if not os.path.exists(RESULTS_FILE):
+        return render_template('admin_dashboard.html', results=[], stats={})
+    
+    # Lire tous les résultats
+    results = []
+    with open(RESULTS_FILE, 'r', newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            results.append(row)
+    
+    # Calculer les statistiques par bloc
+    stats = calculate_block_statistics(results)
+    
+    return render_template('admin_dashboard.html', results=results, stats=stats)
+
 @app.route('/download_results')
 def download_results():
     """Télécharge les résultats (accès protégé)."""
-    # Vous pouvez ajouter une authentification ici
+    if 'admin_authenticated' not in session:
+        return "Accès non autorisé", 403
+    
     if os.path.exists(RESULTS_FILE):
         return send_file(RESULTS_FILE, as_attachment=True, download_name=f'results_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
     else:
         return "Aucun résultat disponible", 404
+
+def calculate_block_statistics(results):
+    """Calcule les statistiques par bloc."""
+    stats = {}
+    
+    # Grouper par bloc
+    blocks = {'bw': [], 'color': [], 'colored_bg': []}
+    block_names = {'bw': 'Bloc 1: Noir/Blanc', 'color': 'Bloc 2: Couleurs', 'colored_bg': 'Bloc 3: Fonds colorés'}
+    
+    for result in results:
+        block_type = result.get('block_type', '')
+        if block_type in blocks:
+            blocks[block_type].append(result)
+    
+    # Calculer les stats pour chaque bloc
+    for block_type, block_results in blocks.items():
+        if not block_results:
+            continue
+            
+        # Temps de réaction moyen
+        reaction_times = [float(r.get('reaction_time', 0)) for r in block_results if r.get('reaction_time')]
+        avg_reaction_time = sum(reaction_times) / len(reaction_times) if reaction_times else 0
+        
+        # Pourcentage de bonnes réponses
+        correct_answers = [r for r in block_results if r.get('correct', '').lower() == 'true']
+        accuracy = (len(correct_answers) / len(block_results)) * 100 if block_results else 0
+        
+        # Nombre total d'essais
+        total_trials = len(block_results)
+        
+        stats[block_type] = {
+            'name': block_names[block_type],
+            'total_trials': total_trials,
+            'correct_answers': len(correct_answers),
+            'accuracy': round(accuracy, 1),
+            'avg_reaction_time': round(avg_reaction_time, 0)
+        }
+    
+    return stats
 
 if __name__ == '__main__':
     init_csv()

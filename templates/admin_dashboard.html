@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord - Résultats Expérience</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .dashboard-header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #3498db;
+        }
+        .stat-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        .results-table {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        .table-header {
+            background: #3498db;
+            color: white;
+            padding: 20px;
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+        .table-container {
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #2c3e50;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        .correct {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .incorrect {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .block-bw { border-left: 4px solid #95a5a6; }
+        .block-color { border-left: 4px solid #f39c12; }
+        .block-colored_bg { border-left: 4px solid #e74c3c; }
+        .actions {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 0 10px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn-secondary {
+            background-color: #95a5a6;
+        }
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        .participant-id {
+            font-family: monospace;
+            font-size: 0.8rem;
+            background: #ecf0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .timestamp {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+        .no-data {
+            text-align: center;
+            padding: 60px;
+            color: #7f8c8d;
+            font-size: 1.2rem;
+        }
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            table {
+                font-size: 0.8rem;
+            }
+            th, td {
+                padding: 8px 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <h1>📊 Tableau de Bord - Résultats Expérience</h1>
+        <p>Analyse complète des données collectées</p>
+        <p class="timestamp">Dernière mise à jour : {{ moment().format('DD/MM/YYYY à HH:mm') if moment else 'Maintenant' }}</p>
+    </div>
+
+    {% if stats %}
+    <div class="stats-grid">
+        {% for block_type, stat in stats.items() %}
+        <div class="stat-card block-{{ block_type }}">
+            <h3>{{ stat.name }}</h3>
+            <div class="stat-value">{{ stat.accuracy }}%</div>
+            <div class="stat-label">Précision ({{ stat.correct_answers }}/{{ stat.total_trials }})</div>
+            <div class="stat-value" style="font-size: 1.5rem; margin-top: 15px;">{{ stat.avg_reaction_time }}ms</div>
+            <div class="stat-label">Temps de réaction moyen</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="results-table">
+        <div class="table-header">
+            📋 Résultats Détaillés par Participant
+            {% if results %}
+            ({{ results|length }} réponses enregistrées)
+            {% endif %}
+        </div>
+        
+        {% if results %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Participant</th>
+                        <th>Session</th>
+                        <th>Date/Heure</th>
+                        <th>Bloc</th>
+                        <th>Essai</th>
+                        <th>Stimulus</th>
+                        <th>Réponse</th>
+                        <th>Correct</th>
+                        <th>Temps (ms)</th>
+                        <th>Couleur Texte</th>
+                        <th>Couleur Fond</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr class="block-{{ result.block_type }}">
+                        <td><span class="participant-id">{{ result.participant_id[:8] }}...</span></td>
+                        <td><span class="participant-id">{{ result.session_id[:8] }}...</span></td>
+                        <td class="timestamp">
+                            {% if result.timestamp %}
+                                {{ result.timestamp.split('T')[0] }}<br>
+                                {{ result.timestamp.split('T')[1].split('.')[0] if 'T' in result.timestamp else result.timestamp }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if result.block_type == 'bw' %}
+                                <span style="color: #95a5a6;">●</span> Bloc 1
+                            {% elif result.block_type == 'color' %}
+                                <span style="color: #f39c12;">●</span> Bloc 2
+                            {% elif result.block_type == 'colored_bg' %}
+                                <span style="color: #e74c3c;">●</span> Bloc 3
+                            {% endif %}
+                        </td>
+                        <td>{{ result.trial_number }}</td>
+                        <td><strong>{{ result.stimulus }}</strong></td>
+                        <td>{{ result.response }}</td>
+                        <td>
+                            {% if result.correct.lower() == 'true' %}
+                                <span class="correct">✓ OUI</span>
+                            {% else %}
+                                <span class="incorrect">✗ NON</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ result.reaction_time }}</td>
+                        <td>
+                            <div style="width: 20px; height: 20px; background-color: {{ result.text_color }}; border: 1px solid #ccc; border-radius: 3px; display: inline-block;"></div>
+                            {{ result.text_color }}
+                        </td>
+                        <td>
+                            <div style="width: 20px; height: 20px; background-color: {{ result.background_color }}; border: 1px solid #ccc; border-radius: 3px; display: inline-block;"></div>
+                            {{ result.background_color }}
+                        </td>
+                        <td>
+                            {% if result.is_word.lower() == 'true' %}
+                                <span style="color: #27ae60;">Mot</span>
+                            {% else %}
+                                <span style="color: #e67e22;">Non-mot</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-data">
+            <p>Aucun résultat disponible pour le moment</p>
+            <p>Les données apparaîtront ici dès que des participants auront terminé l'expérience.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="actions">
+        <a href="{{ url_for('download_results') }}" class="btn">📥 Télécharger CSV</a>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">🔬 Retour à l'expérience</a>
+        <a href="#" onclick="location.reload()" class="btn btn-secondary">🔄 Actualiser</a>
+    </div>
+
+    <script>
+        // Auto-refresh toutes les 30 secondes
+        setTimeout(function() {
+            location.reload();
+        }, 30000);
+        
+        // Afficher un message de confirmation avant le téléchargement
+        document.querySelector('a[href*="download_results"]').addEventListener('click', function(e) {
+            if (!confirm('Télécharger le fichier CSV avec tous les résultats ?')) {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@ class ExperimentApp {
         this.currentScreen = 'welcome-screen';
         this.currentBlock = 0;
         this.currentTrial = 0;
-        this.totalTrials = 12;
+        this.totalTrials = 10;
         this.totalBlocks = 3;
         this.blockTypes = ['bw', 'color', 'colored_bg'];
         this.blockNames = [
@@ -12,14 +12,15 @@ class ExperimentApp {
             'Bloc 3: Stimuli colorés sur fonds colorés'
         ];
         this.blockDescriptions = [
-            'Des stimuli vont apparaître en noir pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Série de 12 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
-            'Des stimuli vont apparaître en couleur pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: la couleur peut influencer votre perception !<br>Série de 12 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
-            'Des stimuli colorés vont apparaître sur des fonds colorés.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: le contraste couleur/fond peut être difficile !<br>Série de 12 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran'
+            'Des stimuli vont apparaître en noir pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
+            'Des stimuli vont apparaître en couleur pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: la couleur peut influencer votre perception !<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
+            'Des stimuli colorés vont apparaître sur des fonds colorés.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: le contraste couleur/fond peut être difficile !<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran'
         ];
         
         this.currentTrialData = null;
         this.trialStartTime = null;
         this.results = [];
+        this.currentBackgroundColor = '#ffffff';
         
         this.init();
     }
@@ -188,7 +189,10 @@ class ExperimentApp {
             
             // Changer la couleur de fond si nécessaire
             if (trialData.background_color !== '#FFFFFF') {
+                this.currentBackgroundColor = trialData.background_color;
                 document.body.style.backgroundColor = trialData.background_color;
+            } else {
+                this.currentBackgroundColor = '#ffffff';
             }
             
             // Afficher pendant le temps spécifié
@@ -205,8 +209,15 @@ class ExperimentApp {
         // Cacher le stimulus
         document.getElementById('stimulus-display').style.display = 'none';
         
-        // Remettre le fond blanc
-        document.body.style.backgroundColor = '#ffffff';
+        // Pour le bloc 3 (colored_bg), garder le fond coloré pendant les choix
+        if (this.blockTypes[this.currentBlock] === 'colored_bg') {
+            // Garder la couleur de fond actuelle
+            document.body.style.backgroundColor = this.currentBackgroundColor;
+        } else {
+            // Pour les autres blocs, remettre le fond blanc
+            document.body.style.backgroundColor = '#ffffff';
+            this.currentBackgroundColor = '#ffffff';
+        }
         
         // Afficher les choix
         this.showChoices();
@@ -271,6 +282,11 @@ class ExperimentApp {
         const messageEl = document.getElementById('feedback-message');
         const detailsEl = document.getElementById('feedback-details');
         
+        // Pour le bloc 3, remettre temporairement le fond blanc pour le feedback
+        if (this.blockTypes[this.currentBlock] === 'colored_bg') {
+            document.body.style.backgroundColor = '#ffffff';
+        }
+        
         if (isCorrect) {
             messageEl.textContent = 'Correct !';
             messageEl.className = 'correct';
@@ -307,11 +323,16 @@ class ExperimentApp {
     }
     
     nextBlock() {
+        // Remettre le fond blanc entre les blocs
+        document.body.style.backgroundColor = '#ffffff';
         this.currentBlock++;
         this.showBlockInstructions();
     }
     
     showResults() {
+        // Remettre le fond blanc pour l'affichage des résultats
+        document.body.style.backgroundColor = '#ffffff';
+        
         // Calculer les statistiques
         const totalCorrect = this.results.filter(r => r.correct).length;
         const totalTrials = this.results.length;
@@ -360,6 +381,7 @@ class ExperimentApp {
         this.results = [];
         this.currentTrialData = null;
         this.trialStartTime = null;
+        this.currentBackgroundColor = '#ffffff';
         
         // Réinitialiser l'affichage
         document.getElementById('trial-info').style.display = 'block';
