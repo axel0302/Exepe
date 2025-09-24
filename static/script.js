@@ -150,6 +150,12 @@ class ExperimentApp {
         document.getElementById('trial-counter').textContent = 
             `Essai ${this.currentTrial}/${this.totalTrials}`;
         
+        // S'assurer que le container est visible au début de l'essai
+        const trialContainer = document.querySelector('#trial-screen .container');
+        if (trialContainer) {
+            trialContainer.style.display = 'block';
+        }
+        
         this.showScreen('trial-screen');
         
         // Attendre 1.5 secondes puis afficher croix
@@ -161,6 +167,14 @@ class ExperimentApp {
     showFixationCross() {
         document.getElementById('trial-info').style.display = 'none';
         document.getElementById('fixation-cross').style.display = 'block';
+        
+        // Masquer le container pendant la croix de fixation
+        const container = document.querySelector('#trial-screen .container');
+        if (container) {
+            container.style.display = 'none';
+        }
+        
+        console.log('🎯 Croix affichée - Container masqué');
         
         // Afficher croix pendant 1 seconde puis stimulus
         setTimeout(() => {
@@ -229,6 +243,12 @@ class ExperimentApp {
         this.currentBackgroundColor = '#ffffff';
         
         console.log('🔄 Fond remis en blanc après stimulus');
+        
+        // Réafficher le container pour les choix
+        const trialContainer = document.querySelector('#trial-screen .container');
+        if (trialContainer) {
+            trialContainer.style.display = 'block';
+        }
         
         // Afficher les choix
         this.showChoices();
@@ -443,6 +463,11 @@ class ExperimentApp {
         document.body.style.backgroundColor = '#ffffff';
         document.body.classList.remove('colored-background');
         document.body.style.removeProperty('--bg-color');
+        
+        // Réafficher tous les containers
+        document.querySelectorAll('.container').forEach(container => {
+            container.style.display = 'block';
+        });
         
         this.showScreen('welcome-screen');
     }
