@@ -111,42 +111,41 @@ def save_result(session_id, participant_id, trial_data):
         print(f"✅ Résultat sauvegardé: {participant_id[:8]}... - {trial_data.get('stimulus', 'N/A')} - {trial_data.get('correct', 'N/A')}")
 
 def get_choices(correct_stimulus, n=4, with_color_word=False):
-    """Génère des choix très difficiles pour induire en erreur maximale."""
+    """Génère des choix cohérents : mots avec mots, non-mots avec non-mots."""
     choices = [correct_stimulus]
+    
+    # Déterminer si le stimulus est un mot ou un non-mot
+    is_word = correct_stimulus in WORDS
+    
+    # Choisir la liste appropriée pour les distracteurs
+    if is_word:
+        available_stimuli = [w for w in WORDS if w != correct_stimulus]
+        print(f"🔤 Stimulus '{correct_stimulus}' est un MOT - choix parmi les mots")
+    else:
+        available_stimuli = [w for w in NON_WORDS if w != correct_stimulus]
+        print(f"🔤 Stimulus '{correct_stimulus}' est un NON-MOT - choix parmi les non-mots")
     
     color_names = ["rouge", "vert", "bleu", "violet", "orange", "rose", "magenta", "cyan", "turquoise", "indigo"]
     potential_distractors = []
     
-    # 1. Ajouter des distracteurs très similaires
+    # 1. Ajouter des distracteurs très similaires (même catégorie)
     if correct_stimulus in SIMILAR_DISTRACTORS:
-        similar = [w for w in SIMILAR_DISTRACTORS[correct_stimulus] if w != correct_stimulus]
+        similar = [w for w in SIMILAR_DISTRACTORS[correct_stimulus] if w != correct_stimulus and w in available_stimuli]
         potential_distractors.extend(similar[:2])
     
-    # 2. Correspondance mot/non-mot
-    if correct_stimulus in WORDS:
-        word_index = WORDS.index(correct_stimulus)
-        if word_index < len(NON_WORDS):
-            corresponding_nonword = NON_WORDS[word_index]
-            if corresponding_nonword != correct_stimulus:
-                potential_distractors.append(corresponding_nonword)
-    elif correct_stimulus in NON_WORDS:
-        nonword_index = NON_WORDS.index(correct_stimulus)
-        if nonword_index < len(WORDS):
-            corresponding_word = WORDS[nonword_index]
-            if corresponding_word != correct_stimulus:
-                potential_distractors.append(corresponding_word)
+    # 2. NE PLUS mélanger mots et non-mots - garder la cohérence
     
-    # 3. Mots associés aux couleurs
-    if with_color_word:
+    # 3. Mots associés aux couleurs (seulement si c'est un mot)
+    if with_color_word and is_word:
         for color_word_list in COLOR_ASSOCIATED_WORDS.values():
-            color_words = [w for w in color_word_list if w != correct_stimulus]
+            color_words = [w for w in color_word_list if w != correct_stimulus and w in available_stimuli]
             potential_distractors.extend(color_words[:1])
         
-        available_colors = [c for c in color_names if c != correct_stimulus]
+        available_colors = [c for c in color_names if c != correct_stimulus and c in available_stimuli]
         potential_distractors.extend(available_colors[:1])
     
-    # 4. Stimuli similaires visuellement
-    same_length = [w for w in ALL_STIMULI if w != correct_stimulus and len(w) == len(correct_stimulus)]
+    # 4. Stimuli similaires visuellement (même catégorie)
+    same_length = [w for w in available_stimuli if len(w) == len(correct_stimulus)]
     similar_visual = []
     for word in same_length:
         common_letters = sum(1 for i, char in enumerate(word) if i < len(correct_stimulus) and char == correct_stimulus[i])
@@ -154,10 +153,10 @@ def get_choices(correct_stimulus, n=4, with_color_word=False):
             similar_visual.append(word)
     potential_distractors.extend(similar_visual[:2])
     
-    # 5. Mots qui commencent/finissent pareil
+    # 5. Mots qui commencent/finissent pareil (même catégorie)
     if len(correct_stimulus) >= 3:
-        same_start = [w for w in ALL_STIMULI if w != correct_stimulus and len(w) >= 3 and w[:2] == correct_stimulus[:2]]
-        same_end = [w for w in ALL_STIMULI if w != correct_stimulus and len(w) >= 3 and w[-2:] == correct_stimulus[-2:]]
+        same_start = [w for w in available_stimuli if len(w) >= 3 and w[:2] == correct_stimulus[:2]]
+        same_end = [w for w in available_stimuli if len(w) >= 3 and w[-2:] == correct_stimulus[-2:]]
         potential_distractors.extend(same_start[:1])
         potential_distractors.extend(same_end[:1])
     
@@ -169,16 +168,18 @@ def get_choices(correct_stimulus, n=4, with_color_word=False):
             unique_distractors.append(item)
             seen.add(item)
     
-    # Sélectionner exactement n-1 distracteurs
+    # Sélectionner exactement n-1 distracteurs (même catégorie)
     if len(unique_distractors) >= n-1:
         selected_distractors = random.sample(unique_distractors, n-1)
     else:
         selected_distractors = unique_distractors
-        remaining = [w for w in ALL_STIMULI if w not in seen]
+        # Compléter avec des stimuli aléatoires de la même catégorie
+        remaining = [w for w in available_stimuli if w not in seen]
         while len(selected_distractors) < n-1 and remaining:
             choice = random.choice(remaining)
             selected_distractors.append(choice)
             remaining.remove(choice)
+            seen.add(choice)
     
     # Construire la liste finale
     final_choices = [correct_stimulus] + selected_distractors
@@ -395,7 +396,50 @@ def admin_dashboard():
     # Calculer les statistiques par bloc
     stats = calculate_block_statistics(results)
     
-    return render_template('admin_dashboard.html', results=results, stats=stats)
+    # Grouper les résultats par participant
+    participants = {}
+    for result in results:
+        participant_id = result['participant_id']
+        if participant_id not in participants:
+            participants[participant_id] = {
+                'participant_id': participant_id,
+                'session_id': result['session_id'],
+                'first_timestamp': result['timestamp'],
+                'trials': [],
+                'total_trials': 0,
+                'correct_trials': 0,
+                'avg_reaction_time': 0
+            }
+        
+        participants[participant_id]['trials'].append(result)
+        participants[participant_id]['total_trials'] += 1
+        if str(result['correct']).lower() == 'true':
+            participants[participant_id]['correct_trials'] += 1
+    
+    # Calculer les statistiques par participant
+    for participant_data in participants.values():
+        if participant_data['total_trials'] > 0:
+            participant_data['accuracy'] = round((participant_data['correct_trials'] / participant_data['total_trials']) * 100, 1)
+            
+            # Calculer temps de réaction moyen
+            reaction_times = []
+            for trial in participant_data['trials']:
+                try:
+                    rt = trial.get('reaction_time', '0')
+                    if rt and str(rt).replace('.', '').isdigit():
+                        reaction_times.append(float(rt))
+                except (ValueError, TypeError):
+                    continue
+            
+            participant_data['avg_reaction_time'] = round(sum(reaction_times) / len(reaction_times), 0) if reaction_times else 0
+        else:
+            participant_data['accuracy'] = 0
+    
+    # Convertir en liste et trier par timestamp
+    participants_list = list(participants.values())
+    participants_list.sort(key=lambda x: x['first_timestamp'])
+    
+    return render_template('admin_dashboard.html', results=results, stats=stats, participants=participants_list)
 
 @app.route('/download_results')
 def download_results():
