@@ -281,7 +281,7 @@ class ExperimentApp {
         
         // Configurer les boutons de choix
         const choices = this.currentTrialData.choices;
-        const colors = ['#FF0000', '#00C800', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF']; // Rouge, Vert, Bleu, Jaune, Magenta, Cyan
+        const colors = ['#FF0000', '#00C800', '#0000FF', '#8B00FF', '#FF6600', '#FF00FF']; // Rouge, Vert, Bleu, Violet, Orange, Magenta
         
         document.querySelectorAll('.choice-btn').forEach((btn, index) => {
             btn.textContent = `${index + 1}. ${choices[index]}`;

@@ -42,25 +42,26 @@ COLOR_ASSOCIATED_WORDS = {
     "rouge": ["sang", "tomate", "rose", "cerise", "feu"],
     "vert": ["herbe", "salade", "forêt", "nature", "pomme"],
     "bleu": ["ciel", "mer", "océan", "bleuet", "saphir"],
-    "jaune": ["soleil", "citron", "banane", "or", "blé"],
+    "violet": ["lavande", "prune", "aubergine", "lilas", "améthyste"],
+    "orange": ["carotte", "citrouille", "abricot", "mandarine", "flamme"],
 }
 
 COLORS = {
-    "noir": "#000000",
     "rouge": "#FF0000",
-    "vert": "#00C800",
+    "vert": "#00C800", 
     "bleu": "#0000FF",
-    "jaune": "#FFFF00",
+    "violet": "#8B00FF",
+    "orange": "#FF6600",
 }
 
 BACKGROUND_COLORS = [
-    "#C8C8C8",  # gris prononcé
-    "#FFB4B4",  # rose prononcé
-    "#B4FFB4",  # vert prononcé
-    "#B4B4FF",  # bleu prononcé
-    "#FFFFB4",  # jaune prononcé
-    "#FFC8FF",  # magenta prononcé
-    "#C8FFFF",  # cyan prononcé
+    "#FF4444",  # rouge vif
+    "#44FF44",  # vert vif
+    "#4444FF",  # bleu vif
+    "#FF44FF",  # magenta vif
+    "#44FFFF",  # cyan vif
+    "#FF8800",  # orange vif
+    "#8844FF",  # violet vif
 ]
 
 def init_csv():
@@ -113,7 +114,7 @@ def get_choices(correct_stimulus, n=4, with_color_word=False):
     """Génère des choix très difficiles pour induire en erreur maximale."""
     choices = [correct_stimulus]
     
-    color_names = ["rouge", "vert", "bleu", "jaune", "noir", "blanc", "rose", "violet", "orange", "marron"]
+    color_names = ["rouge", "vert", "bleu", "violet", "orange", "rose", "magenta", "cyan", "turquoise", "indigo"]
     potential_distractors = []
     
     # 1. Ajouter des distracteurs très similaires
