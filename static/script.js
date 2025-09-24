@@ -358,6 +358,16 @@ class ExperimentApp {
             isWord: this.currentTrialData.is_word
         });
         
+        // Rendre le container transparent immédiatement après la sélection
+        const trialContainer = document.querySelector('#trial-screen .container');
+        if (trialContainer) {
+            trialContainer.style.backgroundColor = 'transparent';
+            trialContainer.style.boxShadow = 'none';
+            trialContainer.style.border = 'none';
+        }
+        
+        console.log('🔄 Container rendu transparent après sélection');
+        
         // Passer au prochain essai après un court délai (sans feedback)
         setTimeout(() => {
             this.nextTrial();
