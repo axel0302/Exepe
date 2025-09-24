@@ -64,6 +64,28 @@ BACKGROUND_COLORS = [
     "#8844FF",  # violet vif
 ]
 
+def hex_to_rgb(hex_color):
+    """Convertit une couleur hexadécimale en RGB."""
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def color_distance(color1, color2):
+    """Calcule la distance euclidienne entre deux couleurs RGB."""
+    r1, g1, b1 = hex_to_rgb(color1)
+    r2, g2, b2 = hex_to_rgb(color2)
+    return ((r1-r2)**2 + (g1-g2)**2 + (b1-b2)**2)**0.5
+
+def colors_too_similar(color1, color2, threshold=100):
+    """Vérifie si deux couleurs sont trop similaires."""
+    return color_distance(color1, color2) < threshold
+
+def is_light_color(hex_color):
+    """Détermine si une couleur est claire (pour choisir noir ou blanc)."""
+    r, g, b = hex_to_rgb(hex_color)
+    # Formule de luminance
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b)
+    return luminance > 128
+
 def init_csv():
     """Initialise le fichier CSV avec les en-têtes si il n'existe pas."""
     if not os.path.exists(RESULTS_FILE):
@@ -226,8 +248,26 @@ def get_trial():
     
     # Déterminer les couleurs selon le bloc
     if block_type == 'colored_bg':
-        text_color = random.choice(list(COLORS.values()))
+        # Choisir d'abord la couleur de fond
         background_color = random.choice(BACKGROUND_COLORS)
+        
+        # Choisir une couleur de texte différente du fond
+        available_text_colors = list(COLORS.values())
+        # Filtrer les couleurs trop similaires au fond
+        safe_text_colors = []
+        for color in available_text_colors:
+            # Vérifier que la couleur n'est pas trop similaire au fond
+            if not colors_too_similar(color, background_color):
+                safe_text_colors.append(color)
+        
+        # Si aucune couleur sûre, utiliser noir ou blanc selon le fond
+        if not safe_text_colors:
+            text_color = "#000000" if is_light_color(background_color) else "#FFFFFF"
+        else:
+            text_color = random.choice(safe_text_colors)
+            
+        print(f"🎨 Bloc 3: Fond {background_color} → Texte {text_color}")
+        
     elif block_type == 'color':
         text_color = random.choice(list(COLORS.values()))
         background_color = "#FFFFFF"

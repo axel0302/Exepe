@@ -6,15 +6,15 @@ class ExperimentApp {
         this.totalTrials = 10;
         this.totalBlocks = 3;
         this.blockTypes = ['bw', 'color', 'colored_bg'];
-        this.blockNames = [
+        this.blockTitles = [
             'Bloc 1: Stimuli en noir',
             'Bloc 2: Stimuli en couleur', 
             'Bloc 3: Stimuli colorés sur fonds colorés'
         ];
         this.blockDescriptions = [
-            'Des stimuli vont apparaître en noir pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
-            'Des stimuli vont apparaître en couleur pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: la couleur peut influencer votre perception !<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
-            'Des stimuli colorés vont apparaître sur des fonds colorés.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: le contraste couleur/fond peut être difficile !<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran'
+            "Une croix va apparaître, puis un mot va s'afficher très brièvement. Vous devrez le reconnaître parmi les choix proposés.",
+            "Une croix va apparaître, puis un mot va s'afficher très brièvement. Vous devrez le reconnaître parmi les choix proposés.",
+            "Une croix va apparaître, puis un mot va s'afficher très brièvement. Vous devrez le reconnaître parmi les choix proposés."
         ];
         
         this.currentTrialData = null;

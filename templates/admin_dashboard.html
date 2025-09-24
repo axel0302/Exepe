@@ -288,7 +288,7 @@
             <div class="participant-row">
                 <div class="participant-summary" onclick="toggleDetails('{{ participant.participant_id }}')">
                     <div class="participant-info">
-                        <span class="participant-id">{{ participant.participant_id[:8] }}...</span>
+                        <span class="participant-id">Participant {{ loop.index }}</span>
                         <span class="participant-stats">
                             {{ participant.total_trials }} essais | 
                             {{ participant.accuracy }}% réussite | 
