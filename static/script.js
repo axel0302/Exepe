@@ -80,8 +80,6 @@ class ExperimentApp {
     }
     
     async startExperiment() {
-        const participantId = document.getElementById('participant-id').value || 'anonymous';
-        
         this.showScreen('loading-screen');
         
         try {
@@ -90,15 +88,18 @@ class ExperimentApp {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    participant_id: participantId
-                })
+                body: JSON.stringify({})
             });
             
             const data = await response.json();
             
             if (data.success) {
                 this.sessionId = data.session_id;
+                this.participantId = data.participant_id;
+                
+                // Afficher l'ID généré automatiquement
+                document.getElementById('participant-id-display').textContent = this.participantId;
+                
                 this.currentBlock = 0;
                 this.currentTrial = 0;
                 this.results = [];

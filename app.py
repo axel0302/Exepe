@@ -228,14 +228,15 @@ def index():
 def start_experiment():
     """Démarre une nouvelle session d'expérience."""
     session['session_id'] = str(uuid.uuid4())
-    session['participant_id'] = request.json.get('participant_id', 'anonymous')
+    session['participant_id'] = str(uuid.uuid4())  # Génération automatique de l'ID participant
     session['current_block'] = 0
     session['current_trial'] = 0
     session['results'] = []
     
     return jsonify({
         'success': True,
-        'session_id': session['session_id']
+        'session_id': session['session_id'],
+        'participant_id': session['participant_id']  # Retourner l'ID généré
     })
 
 @app.route('/get_trial', methods=['POST'])
