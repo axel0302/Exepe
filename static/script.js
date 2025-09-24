@@ -150,10 +150,12 @@ class ExperimentApp {
         document.getElementById('trial-counter').textContent = 
             `Essai ${this.currentTrial}/${this.totalTrials}`;
         
-        // S'assurer que le container est visible au début de l'essai
+        // S'assurer que le container a son apparence normale au début de l'essai
         const trialContainer = document.querySelector('#trial-screen .container');
         if (trialContainer) {
-            trialContainer.style.display = 'block';
+            trialContainer.style.backgroundColor = '#ffffff';
+            trialContainer.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+            trialContainer.style.border = '';
         }
         
         this.showScreen('trial-screen');
@@ -168,13 +170,15 @@ class ExperimentApp {
         document.getElementById('trial-info').style.display = 'none';
         document.getElementById('fixation-cross').style.display = 'block';
         
-        // Masquer le container pendant la croix de fixation
+        // Rendre le container transparent pendant la croix de fixation
         const container = document.querySelector('#trial-screen .container');
         if (container) {
-            container.style.display = 'none';
+            container.style.backgroundColor = 'transparent';
+            container.style.boxShadow = 'none';
+            container.style.border = 'none';
         }
         
-        console.log('🎯 Croix affichée - Container masqué');
+        console.log('🎯 Croix affichée - Container transparent');
         
         // Afficher croix pendant 1 seconde puis stimulus
         setTimeout(() => {
@@ -207,11 +211,24 @@ class ExperimentApp {
                 document.body.style.setProperty('--bg-color', trialData.background_color);
                 document.body.classList.add('colored-background');
                 document.body.style.backgroundColor = trialData.background_color;
+                
+                // Pour le bloc 3, rendre le container de la même couleur que le fond
+                const container = document.querySelector('#trial-screen .container');
+                if (container) {
+                    container.style.backgroundColor = trialData.background_color;
+                }
+                
                 console.log('Fond coloré appliqué:', trialData.background_color);
             } else {
                 this.currentBackgroundColor = '#ffffff';
                 document.body.classList.remove('colored-background');
                 document.body.style.backgroundColor = '#ffffff';
+                
+                // Container transparent pour les blocs 1 et 2
+                const container = document.querySelector('#trial-screen .container');
+                if (container) {
+                    container.style.backgroundColor = 'transparent';
+                }
             }
             
             // Configurer l'affichage du stimulus
@@ -244,10 +261,12 @@ class ExperimentApp {
         
         console.log('🔄 Fond remis en blanc après stimulus');
         
-        // Réafficher le container pour les choix
+        // Restaurer l'apparence normale du container pour les choix
         const trialContainer = document.querySelector('#trial-screen .container');
         if (trialContainer) {
-            trialContainer.style.display = 'block';
+            trialContainer.style.backgroundColor = '#ffffff';
+            trialContainer.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+            trialContainer.style.border = '';
         }
         
         // Afficher les choix
@@ -464,9 +483,11 @@ class ExperimentApp {
         document.body.classList.remove('colored-background');
         document.body.style.removeProperty('--bg-color');
         
-        // Réafficher tous les containers
+        // Restaurer l'apparence normale de tous les containers
         document.querySelectorAll('.container').forEach(container => {
-            container.style.display = 'block';
+            container.style.backgroundColor = '#ffffff';
+            container.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+            container.style.border = '';
         });
         
         this.showScreen('welcome-screen');
