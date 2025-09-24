@@ -79,11 +79,10 @@ class ExperimentApp {
         document.getElementById(screenId).classList.add('active');
         this.currentScreen = screenId;
         
-        // Maintenir le fond coloré pour le bloc 3 sur l'écran de choix
-        if (screenId === 'choice-screen' && this.blockTypes[this.currentBlock] === 'colored_bg' && this.currentBackgroundColor !== '#ffffff') {
-            setTimeout(() => {
-                document.body.style.setProperty('background-color', this.currentBackgroundColor, 'important');
-            }, 10);
+        // S'assurer que le fond reste blanc pour tous les écrans sauf pendant l'affichage du stimulus
+        if (screenId !== 'trial-screen') {
+            document.body.style.backgroundColor = '#ffffff';
+            document.body.classList.remove('colored-background');
         }
     }
     
@@ -222,18 +221,14 @@ class ExperimentApp {
         const stimulusEl = document.getElementById('stimulus-display');
         stimulusEl.classList.remove('visible');
         
-        // Pour le bloc 3 (colored_bg), garder le fond coloré pendant les choix
-        if (this.blockTypes[this.currentBlock] === 'colored_bg') {
-            // Garder la couleur de fond actuelle
-            document.body.style.backgroundColor = this.currentBackgroundColor;
-            document.body.style.setProperty('--bg-color', this.currentBackgroundColor);
-            document.body.classList.add('colored-background');
-        } else {
-            // Pour les autres blocs, remettre le fond blanc
-            document.body.style.backgroundColor = '#ffffff';
-            document.body.classList.remove('colored-background');
-            this.currentBackgroundColor = '#ffffff';
-        }
+        // TOUJOURS remettre le fond blanc après l'affichage du stimulus
+        // Même pour le bloc 3, le fond coloré ne doit être visible que pendant les 50ms du stimulus
+        document.body.style.backgroundColor = '#ffffff';
+        document.body.classList.remove('colored-background');
+        document.body.style.removeProperty('--bg-color');
+        this.currentBackgroundColor = '#ffffff';
+        
+        console.log('🔄 Fond remis en blanc après stimulus');
         
         // Afficher les choix
         this.showChoices();
@@ -270,12 +265,10 @@ class ExperimentApp {
             }
         });
         
-        // Pour le bloc 3, s'assurer que le fond coloré reste visible
-        if (this.blockTypes[this.currentBlock] === 'colored_bg' && this.currentBackgroundColor !== '#ffffff') {
-            document.body.style.setProperty('--bg-color', this.currentBackgroundColor);
-            document.body.classList.add('colored-background');
-            console.log('Fond coloré maintenu pour les choix:', this.currentBackgroundColor);
-        }
+        // Le fond reste blanc pour tous les blocs pendant les choix
+        // Le fond coloré du bloc 3 n'est visible que pendant l'affichage du stimulus (50ms)
+        document.body.style.backgroundColor = '#ffffff';
+        document.body.classList.remove('colored-background');
         
         // Enregistrer le temps de début pour mesurer le temps de réaction
         this.trialStartTime = Date.now();
@@ -379,6 +372,9 @@ class ExperimentApp {
     nextBlock() {
         // Remettre le fond blanc entre les blocs
         document.body.style.backgroundColor = '#ffffff';
+        document.body.classList.remove('colored-background');
+        document.body.style.removeProperty('--bg-color');
+        this.currentBackgroundColor = '#ffffff';
         this.currentBlock++;
         this.showBlockInstructions();
     }
@@ -386,6 +382,9 @@ class ExperimentApp {
     showResults() {
         // Remettre le fond blanc pour l'affichage des résultats
         document.body.style.backgroundColor = '#ffffff';
+        document.body.classList.remove('colored-background');
+        document.body.style.removeProperty('--bg-color');
+        this.currentBackgroundColor = '#ffffff';
         
         // Calculer les statistiques
         const totalCorrect = this.results.filter(r => r.correct).length;
@@ -440,8 +439,10 @@ class ExperimentApp {
         // Réinitialiser l'affichage
         document.getElementById('trial-info').style.display = 'block';
         document.getElementById('fixation-cross').style.display = 'none';
-        document.getElementById('stimulus-display').style.display = 'none';
+        document.getElementById('stimulus-display').classList.remove('visible');
         document.body.style.backgroundColor = '#ffffff';
+        document.body.classList.remove('colored-background');
+        document.body.style.removeProperty('--bg-color');
         
         this.showScreen('welcome-screen');
     }
