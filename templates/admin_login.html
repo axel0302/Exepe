@@ -81,7 +81,7 @@
             Accès aux résultats de l'expérience
         </p>
         
-        <form method="POST">
+        <form method="POST" action="{{ url_for('admin_dashboard') }}">
             <div class="form-group">
                 <label for="password">Mot de passe :</label>
                 <input type="password" id="password" name="password" required>

@@ -306,8 +306,12 @@ def submit_response():
     })
 
 @app.route('/admin')
+@app.route('/admin/')
 def admin_login():
     """Page de connexion administrateur."""
+    # Si déjà authentifié, rediriger vers le dashboard
+    if 'admin_authenticated' in session:
+        return redirect(url_for('admin_dashboard'))
     return render_template('admin_login.html')
 
 @app.route('/admin/dashboard', methods=['GET', 'POST'])
@@ -318,10 +322,10 @@ def admin_dashboard():
         password = request.form.get('password')
         if password != 'admin123':  # Changez ce mot de passe !
             return render_template('admin_login.html', error='Mot de passe incorrect')
+        else:
+            session['admin_authenticated'] = True
     elif 'admin_authenticated' not in session:
         return render_template('admin_login.html')
-    
-    session['admin_authenticated'] = True
     
     if not os.path.exists(RESULTS_FILE):
         return render_template('admin_dashboard.html', results=[], stats={})
