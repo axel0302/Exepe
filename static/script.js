@@ -123,7 +123,7 @@ class ExperimentApp {
     }
     
     showBlockInstructions() {
-        document.getElementById('block-title').textContent = this.blockNames[this.currentBlock];
+        document.getElementById('block-title').textContent = this.blockTitles[this.currentBlock];
         document.getElementById('block-description').innerHTML = this.blockDescriptions[this.currentBlock];
         this.showScreen('block-instructions');
     }
@@ -454,7 +454,7 @@ class ExperimentApp {
             const blockCorrect = blockResults.filter(r => r.correct).length;
             const blockAccuracy = ((blockCorrect / blockResults.length) * 100).toFixed(1);
             blockStats.push({
-                name: this.blockNames[i],
+                name: this.blockTitles[i],
                 correct: blockCorrect,
                 total: blockResults.length,
                 accuracy: blockAccuracy
