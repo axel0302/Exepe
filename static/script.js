@@ -78,6 +78,13 @@ class ExperimentApp {
         // Afficher l'écran demandé
         document.getElementById(screenId).classList.add('active');
         this.currentScreen = screenId;
+        
+        // Maintenir le fond coloré pour le bloc 3 sur l'écran de choix
+        if (screenId === 'choice-screen' && this.blockTypes[this.currentBlock] === 'colored_bg' && this.currentBackgroundColor !== '#ffffff') {
+            setTimeout(() => {
+                document.body.style.setProperty('background-color', this.currentBackgroundColor, 'important');
+            }, 10);
+        }
     }
     
     async startExperiment() {
@@ -191,8 +198,10 @@ class ExperimentApp {
             if (trialData.background_color !== '#FFFFFF') {
                 this.currentBackgroundColor = trialData.background_color;
                 document.body.style.backgroundColor = trialData.background_color;
+                console.log('Fond coloré appliqué:', trialData.background_color);
             } else {
                 this.currentBackgroundColor = '#ffffff';
+                document.body.style.backgroundColor = '#ffffff';
             }
             
             // Afficher pendant le temps spécifié
@@ -257,6 +266,10 @@ class ExperimentApp {
         // Pour le bloc 3, s'assurer que le fond coloré reste visible
         if (this.blockTypes[this.currentBlock] === 'colored_bg' && this.currentBackgroundColor !== '#ffffff') {
             document.body.style.backgroundColor = this.currentBackgroundColor;
+            console.log('Fond coloré maintenu pour les choix:', this.currentBackgroundColor);
+            
+            // Forcer le style avec !important si nécessaire
+            document.body.style.setProperty('background-color', this.currentBackgroundColor, 'important');
         }
         
         // Enregistrer le temps de début pour mesurer le temps de réaction
@@ -303,8 +316,10 @@ class ExperimentApp {
             reactionTime: reactionTime
         });
         
-        // Afficher feedback
-        this.showFeedback(isCorrect, this.currentTrialData.stimulus, selectedChoice);
+        // Passer au prochain essai après un court délai (sans feedback)
+        setTimeout(() => {
+            this.nextTrial();
+        }, 500); // Délai de 500ms pour éviter que ce soit trop rapide
     }
     
     showFeedback(isCorrect, correctAnswer, userAnswer) {

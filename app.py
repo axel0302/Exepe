@@ -55,31 +55,31 @@ SIMILAR_DISTRACTORS = {
     "école": ["écolo", "parole", "rigole", "écoli", "écoles", "école"],
     "hôpital": ["hôpitel", "capital", "digital", "vital", "hôpitaux", "hôpital"],
     "magasin": ["magasun", "raisin", "bassin", "cousin", "magesen", "magasins", "magasin"],
-    # Non-mots avec leurs distracteurs
-    "chion": ["chien", "chine", "chier", "chean", "chuen"],
-    "chet": ["chat", "char", "chant", "chot", "chet"],
-    "maisan": ["maison", "mason", "raison", "saison", "maisen"],
-    "voitare": ["voiture", "voitere", "culture", "nature", "voitire"],
-    "pomne": ["pomme", "homme", "somme", "comme", "pommen"],
-    "livro": ["livre", "libre", "litre", "lièvre", "livri"],
-    "plago": ["plage", "place", "image", "rage", "plege"],
-    "arbro": ["arbre", "marbre", "sabre", "libre", "arbri"],
-    "solail": ["soleil", "sommeil", "conseil", "réveil", "soliel"],
-    "luno": ["lune", "dune", "prune", "rune", "lene"],
-    "floir": ["fleur", "pleur", "coeur", "peur", "fluer"],
-    "oisiau": ["oiseau", "roseau", "bateau", "château", "oisiau"],
-    "poissan": ["poisson", "boisson", "moisson", "poison", "poissen"],
-    "montegne": ["montagne", "campagne", "compagne", "bretagne", "montegni"],
-    "rivièro": ["rivière", "carrière", "barrière", "matière", "rivièri"],
-    "forît": ["forêt", "secret", "regret", "projet", "forêt"],
-    "tablo": ["table", "stable", "sable", "fable", "tabli"],
-    "chaiso": ["chaise", "fraise", "braise", "caisse", "cheise"],
-    "fenître": ["fenêtre", "centre", "ventre", "rentre", "fenetre"],
-    "porto": ["porte", "forte", "sorte", "morte", "parti"],
-    "jardun": ["jardin", "marin", "martin", "pardin", "jardien"],
-    "écolo": ["école", "parole", "rigole", "école", "écoli"],
-    "hôpitel": ["hôpital", "capital", "digital", "vital", "hôpitel"],
-    "magasun": ["magasin", "raisin", "bassin", "cousin", "magesen"]
+    # Non-mots avec des lettres aléatoires
+    "blixor": ["blixon", "blixar", "blixer", "blixir"],
+    "frunez": ["frunoz", "frunaz", "fruniz", "frunuz"],
+    "glopek": ["glopik", "glopak", "glopok", "glopuk"],
+    "tralux": ["tralox", "tralex", "tralix", "tralax"],
+    "vokrim": ["vokram", "vokrem", "vokrom", "vokrum"],
+    "zephiq": ["zephaq", "zepheq", "zephoq", "zephuq"],
+    "quilmex": ["quilmax", "quilmix", "quilmox", "quilmux"],
+    "braxon": ["braxen", "braxin", "braxan", "braxun"],
+    "flumig": ["flumag", "flumeg", "flumog", "flumug"],
+    "krenov": ["krenav", "krenev", "kreniv", "krenuv"],
+    "doltex": ["doltax", "doltix", "doltox", "doltux"],
+    "prixel": ["prixal", "prixil", "prixol", "prixul"],
+    "vextor": ["vextar", "vextir", "vextur", "vextor"],
+    "glumix": ["glumax", "glumex", "glumox", "glumux"],
+    "tronez": ["tronaz", "troniz", "tronoz", "tronuz"],
+    "blefox": ["blefax", "blefex", "blefox", "blefux"],
+    "krimol": ["krimel", "krimil", "krimul", "krimel"],
+    "floxen": ["floxan", "floxin", "floxon", "floxun"],
+    "vraliq": ["vralaq", "vraleq", "vraloq", "vraluq"],
+    "gextom": ["gextam", "gextim", "gextum", "gextom"],
+    "pluvex": ["pluvax", "pluvix", "pluvox", "pluvux"],
+    "drixel": ["drixal", "drixil", "drixol", "drixul"],
+    "blomek": ["blomak", "blomik", "blomok", "blomuk"],
+    "kraxon": ["kraxen", "kraxin", "kraxan", "kraxun"]
 }
 
 COLOR_ASSOCIATED_WORDS = {
@@ -336,7 +336,22 @@ def admin_dashboard():
         with open(RESULTS_FILE, 'r', newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                results.append(row)
+                # S'assurer que toutes les clés nécessaires existent
+                safe_row = {
+                    'participant_id': row.get('participant_id', 'N/A'),
+                    'session_id': row.get('session_id', 'N/A'),
+                    'timestamp': row.get('timestamp', 'N/A'),
+                    'block_type': row.get('block_type', 'unknown'),
+                    'trial_number': row.get('trial_number', 'N/A'),
+                    'stimulus': row.get('stimulus', 'N/A'),
+                    'response': row.get('response', 'N/A'),
+                    'correct': row.get('correct', 'false'),
+                    'reaction_time': row.get('reaction_time', 'N/A'),
+                    'text_color': row.get('text_color', '#000000'),
+                    'background_color': row.get('background_color', '#ffffff'),
+                    'is_word': row.get('is_word', 'false')
+                }
+                results.append(safe_row)
     except Exception as e:
         print(f"Erreur lors de la lecture du fichier CSV: {e}")
         return render_template('admin_dashboard.html', results=[], stats={}, error="Erreur lors de la lecture des données")

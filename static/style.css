@@ -194,21 +194,22 @@ h3 {
     z-index: 1001;
 }
 
-/* Affichage du stimulus */
+/* Stimulus display */
 #stimulus-display {
-    font-size: clamp(3rem, 10vw, 5rem);
-    font-weight: bold;
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    display: none;
-    user-select: none;
-    pointer-events: none;
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: bold;
     z-index: 1001;
+    display: none;
+    text-align: center;
+    white-space: nowrap;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    padding: 20px;
 }
 
-/* Choix de réponse */
 #choices-container {
     display: grid;
     grid-template-columns: 1fr 1fr;

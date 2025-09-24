@@ -151,6 +151,18 @@
             margin-right: 5px;
             vertical-align: middle;
         }
+        .bloc-indicator {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .bloc-1 { color: #95a5a6; }
+        .bloc-2 { color: #f39c12; }
+        .bloc-3 { color: #e74c3c; }
+        .word-type {
+            font-weight: bold;
+        }
+        .word { color: #27ae60; }
+        .non-word { color: #e67e22; }
         @media (max-width: 768px) {
             .stats-grid {
                 grid-template-columns: 1fr;
@@ -227,21 +239,14 @@
                     <tr class="block-{{ result.block_type }}">
                         <td><span class="participant-id">{{ result.participant_id[:8] }}...</span></td>
                         <td><span class="participant-id">{{ result.session_id[:8] }}...</span></td>
-                        <td class="timestamp">
-                            {% if result.timestamp %}
-                                {{ result.timestamp.split('T')[0] }}<br>
-                                {{ result.timestamp.split('T')[1].split('.')[0] if 'T' in result.timestamp else result.timestamp }}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
+                        <td class="timestamp">{{ result.timestamp }}</td>
                         <td>
                             {% if result.block_type == 'bw' %}
-                                <span style="color: #95a5a6;">●</span> Bloc 1
+                                <span class="bloc-indicator bloc-1">●</span> Bloc 1
                             {% elif result.block_type == 'color' %}
-                                <span style="color: #f39c12;">●</span> Bloc 2
+                                <span class="bloc-indicator bloc-2">●</span> Bloc 2
                             {% elif result.block_type == 'colored_bg' %}
-                                <span style="color: #e74c3c;">●</span> Bloc 3
+                                <span class="bloc-indicator bloc-3">●</span> Bloc 3
                             {% endif %}
                         </td>
                         <td>{{ result.trial_number }}</td>
@@ -265,9 +270,9 @@
                         </td>
                         <td>
                             {% if result.is_word.lower() == 'true' %}
-                                <span style="color: #27ae60;">Mot</span>
+                                <span class="word-type word">Mot</span>
                             {% else %}
-                                <span style="color: #e67e22;">Non-mot</span>
+                                <span class="word-type non-word">Non-mot</span>
                             {% endif %}
                         </td>
                     </tr>
