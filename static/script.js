@@ -3,7 +3,7 @@ class ExperimentApp {
         this.currentScreen = 'welcome-screen';
         this.currentBlock = 0;
         this.currentTrial = 0;
-        this.totalTrials = 10;
+        this.totalTrials = 5;
         this.totalBlocks = 3;
         this.blockTypes = ['bw', 'color', 'colored_bg'];
         this.blockNames = [
@@ -12,9 +12,9 @@ class ExperimentApp {
             'Bloc 3: Stimuli colorés sur fonds colorés'
         ];
         this.blockDescriptions = [
-            'Des stimuli vont apparaître en noir pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
-            'Des stimuli vont apparaître en couleur pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: la couleur peut influencer votre perception !<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
-            'Des stimuli colorés vont apparaître sur des fonds colorés.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: le contraste couleur/fond peut être difficile !<br>Série de 10 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran'
+            'Des stimuli vont apparaître en noir pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Série de 5 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
+            'Des stimuli vont apparaître en couleur pendant de très courts instants.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: la couleur peut influencer votre perception !<br>Série de 5 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran',
+            'Des stimuli colorés vont apparaître sur des fonds colorés.<br>Votre tâche est d\'identifier le stimulus qui était affiché.<br>Attention: le contraste couleur/fond peut être difficile !<br>Série de 5 essais à 50ms - Répondez RAPIDEMENT !<br>Fixez la croix au centre de l\'écran'
         ];
         
         this.currentTrialData = null;
@@ -53,9 +53,9 @@ class ExperimentApp {
             this.nextBlock();
         });
         
-        // Bouton recommencer
-        document.getElementById('restart-btn').addEventListener('click', () => {
-            this.restart();
+        // Bouton envoyer les résultats
+        document.getElementById('send-results-btn').addEventListener('click', () => {
+            this.sendFinalResults();
         });
         
         // Touches clavier pour les choix
@@ -197,10 +197,12 @@ class ExperimentApp {
             // Changer la couleur de fond si nécessaire
             if (trialData.background_color !== '#FFFFFF') {
                 this.currentBackgroundColor = trialData.background_color;
-                document.body.style.backgroundColor = trialData.background_color;
+                document.body.style.setProperty('--bg-color', trialData.background_color);
+                document.body.classList.add('colored-background');
                 console.log('Fond coloré appliqué:', trialData.background_color);
             } else {
                 this.currentBackgroundColor = '#ffffff';
+                document.body.classList.remove('colored-background');
                 document.body.style.backgroundColor = '#ffffff';
             }
             
@@ -265,11 +267,9 @@ class ExperimentApp {
         
         // Pour le bloc 3, s'assurer que le fond coloré reste visible
         if (this.blockTypes[this.currentBlock] === 'colored_bg' && this.currentBackgroundColor !== '#ffffff') {
-            document.body.style.backgroundColor = this.currentBackgroundColor;
+            document.body.style.setProperty('--bg-color', this.currentBackgroundColor);
+            document.body.classList.add('colored-background');
             console.log('Fond coloré maintenu pour les choix:', this.currentBackgroundColor);
-            
-            // Forcer le style avec !important si nécessaire
-            document.body.style.setProperty('background-color', this.currentBackgroundColor, 'important');
         }
         
         // Enregistrer le temps de début pour mesurer le temps de réaction
@@ -434,6 +434,50 @@ class ExperimentApp {
         document.body.style.backgroundColor = '#ffffff';
         
         this.showScreen('welcome-screen');
+    }
+    
+    async sendFinalResults() {
+        try {
+            // Afficher un message de confirmation
+            const confirmSend = confirm('Êtes-vous sûr de vouloir envoyer vos résultats ? Cette action est définitive.');
+            if (!confirmSend) {
+                return;
+            }
+            
+            // Changer le texte du bouton
+            const btn = document.getElementById('send-results-btn');
+            btn.textContent = '📤 Envoi en cours...';
+            btn.disabled = true;
+            
+            // Envoyer tous les résultats stockés localement
+            for (let result of this.results) {
+                await fetch('/save_result', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(result)
+                });
+            }
+            
+            // Succès
+            btn.textContent = '✅ Résultats envoyés !';
+            btn.style.backgroundColor = '#27ae60';
+            
+            // Afficher un message de confirmation
+            setTimeout(() => {
+                alert('Vos résultats ont été envoyés avec succès ! Merci pour votre participation.');
+            }, 500);
+            
+        } catch (error) {
+            console.error('Erreur lors de l\'envoi des résultats:', error);
+            const btn = document.getElementById('send-results-btn');
+            btn.textContent = '❌ Erreur d\'envoi';
+            btn.style.backgroundColor = '#e74c3c';
+            btn.disabled = false;
+            
+            alert('Erreur lors de l\'envoi des résultats. Veuillez réessayer.');
+        }
     }
 }
 

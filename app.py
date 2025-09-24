@@ -14,73 +14,29 @@ app.secret_key = 'experience_perception_mots_couleurs_2024'
 RESULTS_FILE = 'results.csv'
 RESULTS_LOCK = threading.Lock()
 
-# Données de l'expérience (reprises du code original)
-WORDS = [
-    "chien", "chat", "maison", "voiture", "pomme", "livre", "plage", "arbre",
-    "soleil", "lune", "fleur", "oiseau", "poisson", "montagne", "rivière", "forêt",
-    "table", "chaise", "fenêtre", "porte", "jardin", "école", "hôpital", "magasin"
+# Mots réels français
+REAL_WORDS = [
+    "chien", "chat", "maison", "voiture", "pomme", "livre", "plage", "arbre", 
+    "soleil", "lune", "fleur", "oiseau", "poisson", "montagne", "rivière", 
+    "forêt", "table", "chaise", "fenêtre", "porte", "jardin", "école", 
+    "hôpital", "magasin"
 ]
 
-NON_WORDS = [
-    "chion", "chet", "maisan", "voitare", "pomne", "livro", "plago", "arbro",
-    "solail", "luno", "floir", "oisiau", "poissan", "montegne", "rivièro", "forît",
-    "tablo", "chaiso", "fenêtre", "porto", "jardun", "écolo", "hôpitel", "magasun"
+# Non-mots avec lettres complètement aléatoires
+FAKE_WORDS = [
+    "blixor", "frunez", "glopek", "tralux", "vokrim", "zephiq", "quilmex", 
+    "braxon", "flumig", "krenov", "doltex", "prixel", "vextor", "glumix", 
+    "tronez", "blefox", "krimol", "floxen", "vraliq", "gextom", "pluvex", 
+    "drixel", "blomek", "kraxon"
 ]
 
+# Données de l'expérience
+WORDS = REAL_WORDS
+NON_WORDS = FAKE_WORDS
 ALL_STIMULI = WORDS + NON_WORDS
 DISPLAY_TIME = 50  # ms
 
-SIMILAR_DISTRACTORS = {
-    "chien": ["chion", "chine", "chier", "chean", "chuen", "chien", "chies"],
-    "chat": ["chet", "char", "chant", "chot", "chats", "cha", "chad"],
-    "maison": ["maisan", "mason", "raison", "saison", "maisen", "maisons", "maisan"],
-    "voiture": ["voitare", "voitere", "voitures", "voitire", "voitune", "voitore"],
-    "pomme": ["pomne", "homme", "somme", "comme", "pommen", "pommes", "porme"],
-    "livre": ["livro", "libre", "litre", "lièvre", "livri", "livres", "livne"],
-    "plage": ["plago", "place", "image", "rage", "plege", "plages", "plabe"],
-    "arbre": ["arbro", "marbre", "sabre", "libre", "arbri", "arbres", "arbre"],
-    "soleil": ["solail", "sommeil", "conseil", "réveil", "soliel", "soleils", "soleal"],
-    "lune": ["luno", "dune", "prune", "rune", "lene", "lunes", "lune"],
-    "fleur": ["floir", "pleur", "coeur", "peur", "fluer", "fleurs", "fleur"],
-    "oiseau": ["oisiau", "roseau", "bateau", "château", "oiseaux", "oisiau", "oiseau"],
-    "poisson": ["poissan", "boisson", "moisson", "poison", "poissons", "poissen", "poisson"],
-    "montagne": ["montegne", "campagne", "compagne", "bretagne", "montagnes", "montegni"],
-    "rivière": ["rivièro", "carrière", "barrière", "matière", "rivières", "rivièri"],
-    "forêt": ["forît", "secret", "regret", "projet", "forêts", "forêt"],
-    "table": ["tablo", "stable", "sable", "fable", "tabli", "tables", "table"],
-    "chaise": ["chaiso", "fraise", "braise", "caisse", "cheise", "chaises", "chaise"],
-    "fenêtre": ["fenître", "centre", "ventre", "rentre", "fenêtres", "fenetre"],
-    "porte": ["porto", "forte", "sorte", "morte", "parti", "portes", "porte"],
-    "jardin": ["jardun", "marin", "martin", "pardin", "jardien", "jardins", "jardin"],
-    "école": ["écolo", "parole", "rigole", "écoli", "écoles", "école"],
-    "hôpital": ["hôpitel", "capital", "digital", "vital", "hôpitaux", "hôpital"],
-    "magasin": ["magasun", "raisin", "bassin", "cousin", "magesen", "magasins", "magasin"],
-    # Non-mots avec des lettres aléatoires
-    "blixor": ["blixon", "blixar", "blixer", "blixir"],
-    "frunez": ["frunoz", "frunaz", "fruniz", "frunuz"],
-    "glopek": ["glopik", "glopak", "glopok", "glopuk"],
-    "tralux": ["tralox", "tralex", "tralix", "tralax"],
-    "vokrim": ["vokram", "vokrem", "vokrom", "vokrum"],
-    "zephiq": ["zephaq", "zepheq", "zephoq", "zephuq"],
-    "quilmex": ["quilmax", "quilmix", "quilmox", "quilmux"],
-    "braxon": ["braxen", "braxin", "braxan", "braxun"],
-    "flumig": ["flumag", "flumeg", "flumog", "flumug"],
-    "krenov": ["krenav", "krenev", "kreniv", "krenuv"],
-    "doltex": ["doltax", "doltix", "doltox", "doltux"],
-    "prixel": ["prixal", "prixil", "prixol", "prixul"],
-    "vextor": ["vextar", "vextir", "vextur", "vextor"],
-    "glumix": ["glumax", "glumex", "glumox", "glumux"],
-    "tronez": ["tronaz", "troniz", "tronoz", "tronuz"],
-    "blefox": ["blefax", "blefex", "blefox", "blefux"],
-    "krimol": ["krimel", "krimil", "krimul", "krimel"],
-    "floxen": ["floxan", "floxin", "floxon", "floxun"],
-    "vraliq": ["vralaq", "vraleq", "vraloq", "vraluq"],
-    "gextom": ["gextam", "gextim", "gextum", "gextom"],
-    "pluvex": ["pluvax", "pluvix", "pluvox", "pluvux"],
-    "drixel": ["drixal", "drixil", "drixol", "drixul"],
-    "blomek": ["blomak", "blomik", "blomok", "blomuk"],
-    "kraxon": ["kraxen", "kraxin", "kraxan", "kraxun"]
-}
+SIMILAR_DISTRACTORS = {}
 
 COLOR_ASSOCIATED_WORDS = {
     "rouge": ["sang", "tomate", "rose", "cerise", "feu"],
@@ -276,25 +232,23 @@ def get_trial():
         'is_word': stimulus in WORDS
     })
 
-@app.route('/submit_response', methods=['POST'])
-def submit_response():
-    """Enregistre la réponse d'un participant."""
-    if 'session_id' not in session:
-        return jsonify({'error': 'Session non initialisée'}), 400
-    
+@app.route('/submit_trial', methods=['POST'])
+def submit_trial():
+    """Soumet un essai et retourne le feedback."""
     data = request.json
     
+    # Récupérer les données de l'essai
     trial_data = {
-        'trial_number': data['trial_number'],
-        'block_type': data['block_type'],
-        'stimulus': data['stimulus'],
-        'response': data['response'],
-        'correct': data['response'] == data['stimulus'],
-        'reaction_time': data['reaction_time'],
-        'text_color': data['text_color'],
-        'background_color': data['background_color'],
-        'is_word': data['is_word'],
-        'choices': data['choices']
+        'timestamp': datetime.datetime.now().isoformat(),
+        'block_type': data.get('block_type'),
+        'trial_number': data.get('trial_number'),
+        'stimulus': data.get('stimulus'),
+        'response': data.get('response'),
+        'correct': data.get('correct'),
+        'reaction_time': data.get('reaction_time'),
+        'text_color': data.get('text_color'),
+        'background_color': data.get('background_color'),
+        'is_word': data.get('is_word')
     }
     
     # Sauvegarder dans le CSV
@@ -304,6 +258,37 @@ def submit_response():
         'success': True,
         'correct': trial_data['correct']
     })
+
+@app.route('/save_result', methods=['POST'])
+def save_result_endpoint():
+    """Sauvegarde un résultat envoyé par le client."""
+    try:
+        data = request.json
+        
+        # Récupérer les données du résultat
+        result_data = {
+            'timestamp': datetime.datetime.now().isoformat(),
+            'participant_id': session.get('participant_id', 'anonymous'),
+            'session_id': session.get('session_id', 'unknown'),
+            'block_type': data.get('block', 'unknown'),
+            'trial_number': data.get('trial', 0),
+            'stimulus': data.get('stimulus', ''),
+            'response': data.get('response', ''),
+            'correct': str(data.get('correct', False)).lower(),
+            'reaction_time': data.get('reactionTime', 0),
+            'text_color': '#000000',  # Valeur par défaut
+            'background_color': '#ffffff',  # Valeur par défaut
+            'is_word': str(data.get('stimulus', '') in WORDS).lower()
+        }
+        
+        # Sauvegarder dans le CSV
+        save_result(session.get('session_id', 'unknown'), session.get('participant_id', 'anonymous'), result_data)
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/admin')
 @app.route('/admin/')
