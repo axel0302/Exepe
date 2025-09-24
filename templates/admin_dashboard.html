@@ -142,6 +142,15 @@
             color: #7f8c8d;
             font-size: 1.2rem;
         }
+        .color-preview {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
         @media (max-width: 768px) {
             .stats-grid {
                 grid-template-columns: 1fr;
@@ -162,7 +171,17 @@
         <p class="timestamp">Dernière mise à jour : {{ moment().format('DD/MM/YYYY à HH:mm') if moment else 'Maintenant' }}</p>
     </div>
 
-    {% if stats %}
+    {% if error %}
+    <div class="results-table">
+        <div class="table-header" style="background: #e74c3c;">
+            ⚠️ Erreur
+        </div>
+        <div class="no-data">
+            <p>{{ error }}</p>
+            <p>Veuillez vérifier les logs du serveur pour plus de détails.</p>
+        </div>
+    </div>
+    {% elif stats %}
     <div class="stats-grid">
         {% for block_type, stat in stats.items() %}
         <div class="stat-card block-{{ block_type }}">
@@ -237,11 +256,11 @@
                         </td>
                         <td>{{ result.reaction_time }}</td>
                         <td>
-                            <div style="width: 20px; height: 20px; background-color: {{ result.text_color }}; border: 1px solid #ccc; border-radius: 3px; display: inline-block;"></div>
+                            <span class="color-preview" style="background-color: {{ result.text_color }};"></span>
                             {{ result.text_color }}
                         </td>
                         <td>
-                            <div style="width: 20px; height: 20px; background-color: {{ result.background_color }}; border: 1px solid #ccc; border-radius: 3px; display: inline-block;"></div>
+                            <span class="color-preview" style="background-color: {{ result.background_color }};"></span>
                             {{ result.background_color }}
                         </td>
                         <td>

@@ -243,6 +243,18 @@ h3 {
     transform: translateY(-2px);
 }
 
+/* Styles pour les boutons colorés dans les blocs 2 et 3 */
+.choice-btn.colored {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.choice-btn.colored:hover {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
 .choice-btn:active {
     background-color: #3498db;
     color: white;

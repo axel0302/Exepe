@@ -330,12 +330,16 @@ def admin_dashboard():
     if not os.path.exists(RESULTS_FILE):
         return render_template('admin_dashboard.html', results=[], stats={})
     
-    # Lire tous les résultats
+    # Lire tous les résultats avec gestion d'erreur
     results = []
-    with open(RESULTS_FILE, 'r', newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            results.append(row)
+    try:
+        with open(RESULTS_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                results.append(row)
+    except Exception as e:
+        print(f"Erreur lors de la lecture du fichier CSV: {e}")
+        return render_template('admin_dashboard.html', results=[], stats={}, error="Erreur lors de la lecture des données")
     
     # Calculer les statistiques par bloc
     stats = calculate_block_statistics(results)
@@ -357,38 +361,52 @@ def calculate_block_statistics(results):
     """Calcule les statistiques par bloc."""
     stats = {}
     
-    # Grouper par bloc
-    blocks = {'bw': [], 'color': [], 'colored_bg': []}
-    block_names = {'bw': 'Bloc 1: Noir/Blanc', 'color': 'Bloc 2: Couleurs', 'colored_bg': 'Bloc 3: Fonds colorés'}
-    
-    for result in results:
-        block_type = result.get('block_type', '')
-        if block_type in blocks:
-            blocks[block_type].append(result)
-    
-    # Calculer les stats pour chaque bloc
-    for block_type, block_results in blocks.items():
-        if not block_results:
-            continue
+    try:
+        # Grouper par bloc
+        blocks = {'bw': [], 'color': [], 'colored_bg': []}
+        block_names = {'bw': 'Bloc 1: Noir/Blanc', 'color': 'Bloc 2: Couleurs', 'colored_bg': 'Bloc 3: Fonds colorés'}
+        
+        for result in results:
+            block_type = result.get('block_type', '')
+            if block_type in blocks:
+                blocks[block_type].append(result)
+        
+        # Calculer les stats pour chaque bloc
+        for block_type, block_results in blocks.items():
+            if not block_results:
+                continue
+                
+            # Temps de réaction moyen (avec gestion d'erreurs)
+            reaction_times = []
+            for r in block_results:
+                try:
+                    rt = r.get('reaction_time', '0')
+                    if rt and str(rt).replace('.', '').isdigit():
+                        reaction_times.append(float(rt))
+                except (ValueError, TypeError):
+                    continue
             
-        # Temps de réaction moyen
-        reaction_times = [float(r.get('reaction_time', 0)) for r in block_results if r.get('reaction_time')]
-        avg_reaction_time = sum(reaction_times) / len(reaction_times) if reaction_times else 0
-        
-        # Pourcentage de bonnes réponses
-        correct_answers = [r for r in block_results if r.get('correct', '').lower() == 'true']
-        accuracy = (len(correct_answers) / len(block_results)) * 100 if block_results else 0
-        
-        # Nombre total d'essais
-        total_trials = len(block_results)
-        
-        stats[block_type] = {
-            'name': block_names[block_type],
-            'total_trials': total_trials,
-            'correct_answers': len(correct_answers),
-            'accuracy': round(accuracy, 1),
-            'avg_reaction_time': round(avg_reaction_time, 0)
-        }
+            avg_reaction_time = sum(reaction_times) / len(reaction_times) if reaction_times else 0
+            
+            # Pourcentage de bonnes réponses
+            correct_answers = [r for r in block_results if str(r.get('correct', '')).lower() == 'true']
+            accuracy = (len(correct_answers) / len(block_results)) * 100 if block_results else 0
+            
+            # Nombre total d'essais
+            total_trials = len(block_results)
+            
+            stats[block_type] = {
+                'name': block_names[block_type],
+                'total_trials': total_trials,
+                'correct_answers': len(correct_answers),
+                'accuracy': round(accuracy, 1),
+                'avg_reaction_time': round(avg_reaction_time, 0)
+            }
+    
+    except Exception as e:
+        print(f"Erreur dans calculate_block_statistics: {e}")
+        # Retourner des stats vides en cas d'erreur
+        stats = {}
     
     return stats
 

@@ -226,9 +226,38 @@ class ExperimentApp {
     showChoices() {
         // Configurer les boutons de choix
         const choices = this.currentTrialData.choices;
+        const colors = ['#FF0000', '#00C800', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF']; // Rouge, Vert, Bleu, Jaune, Magenta, Cyan
+        
         document.querySelectorAll('.choice-btn').forEach((btn, index) => {
             btn.textContent = `${index + 1}. ${choices[index]}`;
+            
+            // Réinitialiser les styles
+            btn.style.color = '';
+            btn.style.backgroundColor = '';
+            btn.style.border = '';
+            
+            // Ajouter des couleurs aux réponses dans les blocs 2 et 3 pour induire en erreur
+            if (this.blockTypes[this.currentBlock] === 'color' || this.blockTypes[this.currentBlock] === 'colored_bg') {
+                // Choisir une couleur aléatoire différente pour chaque bouton
+                const randomColor = colors[index % colors.length];
+                btn.style.color = randomColor;
+                btn.style.fontWeight = 'bold';
+                btn.classList.add('colored');
+                
+                // Pour le bloc 3, ajouter aussi une bordure colorée
+                if (this.blockTypes[this.currentBlock] === 'colored_bg') {
+                    btn.style.border = `3px solid ${randomColor}`;
+                    btn.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                }
+            } else {
+                btn.classList.remove('colored');
+            }
         });
+        
+        // Pour le bloc 3, s'assurer que le fond coloré reste visible
+        if (this.blockTypes[this.currentBlock] === 'colored_bg' && this.currentBackgroundColor !== '#ffffff') {
+            document.body.style.backgroundColor = this.currentBackgroundColor;
+        }
         
         // Enregistrer le temps de début pour mesurer le temps de réaction
         this.trialStartTime = Date.now();
