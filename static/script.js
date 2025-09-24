@@ -150,12 +150,13 @@ class ExperimentApp {
         document.getElementById('trial-counter').textContent = 
             `Essai ${this.currentTrial}/${this.totalTrials}`;
         
-        // S'assurer que le container a son apparence normale au début de l'essai
+        // Garder le container transparent au début de l'essai
+        // Il ne redeviendra visible qu'au moment des choix
         const trialContainer = document.querySelector('#trial-screen .container');
         if (trialContainer) {
-            trialContainer.style.backgroundColor = '#ffffff';
-            trialContainer.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
-            trialContainer.style.border = '';
+            trialContainer.style.backgroundColor = 'transparent';
+            trialContainer.style.boxShadow = 'none';
+            trialContainer.style.border = 'none';
         }
         
         this.showScreen('trial-screen');
@@ -261,7 +262,14 @@ class ExperimentApp {
         
         console.log('🔄 Fond remis en blanc après stimulus');
         
-        // Restaurer l'apparence normale du container pour les choix
+        // Le container reste transparent ici, il sera restauré dans showChoices()
+        
+        // Afficher les choix
+        this.showChoices();
+    }
+    
+    showChoices() {
+        // Restaurer l'apparence normale du container SEULEMENT au moment des choix
         const trialContainer = document.querySelector('#trial-screen .container');
         if (trialContainer) {
             trialContainer.style.backgroundColor = '#ffffff';
@@ -269,11 +277,8 @@ class ExperimentApp {
             trialContainer.style.border = '';
         }
         
-        // Afficher les choix
-        this.showChoices();
-    }
-    
-    showChoices() {
+        console.log('📋 Container restauré pour les choix');
+        
         // Configurer les boutons de choix
         const choices = this.currentTrialData.choices;
         const colors = ['#FF0000', '#00C800', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF']; // Rouge, Vert, Bleu, Jaune, Magenta, Cyan
