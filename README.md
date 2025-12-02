@@ -44,28 +44,12 @@ Ouvrir http://localhost:5000 dans votre navigateur
 
 ## Déploiement en ligne
 
-### Option 1: Heroku (Gratuit)
-
-1. **Créer un compte Heroku** : https://heroku.com
-2. **Installer Heroku CLI** : https://devcenter.heroku.com/articles/heroku-cli
-3. **Déployer :**
-
-```bash
-# Dans le dossier web_app/
-git init
-git add .
-git commit -m "Initial commit"
-
-heroku create votre-nom-app
-git push heroku main
-```
-
-### Option 2: Railway (Gratuit)
+### Option 1: Railway (Gratuit)
 
 1. **Créer un compte Railway** : https://railway.app
 2. **Connecter votre GitHub** et déployer directement depuis le dossier
 
-### Option 3: Render (Gratuit)
+### Option 2: Render (Gratuit)
 
 1. **Créer un compte Render** : https://render.com
 2. **Connecter GitHub** et sélectionner le dossier web_app/
