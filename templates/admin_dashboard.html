@@ -248,6 +248,16 @@
         <h1>📊 Tableau de Bord - Résultats Expérience</h1>
         <p>Analyse complète des données collectées</p>
         <p class="timestamp">Dernière mise à jour : {{ moment().format('DD/MM/YYYY à HH:mm') if moment else 'Maintenant' }}</p>
+        {% if imported or skipped %}
+        <p style="margin-top:10px; color:#27ae60;">
+            Import terminé : {{ imported or 0 }} ajout(s), {{ skipped or 0 }} doublon(s) ignoré(s).
+        </p>
+        {% endif %}
+        {% if import_error %}
+        <p style="margin-top:10px; color:#e74c3c;">
+            Erreur d'import : {{ import_error }}
+        </p>
+        {% endif %}
     </div>
 
     {% if error %}
@@ -364,6 +374,10 @@
     </div>
 
     <div class="actions">
+        <form action="{{ url_for('import_results') }}" method="post" enctype="multipart/form-data" style="display:inline-block; margin: 0 10px;">
+            <input type="file" name="file" accept=".csv" required>
+            <button type="submit" class="btn">📤 Importer CSV</button>
+        </form>
         <a href="{{ url_for('download_results') }}" class="btn">📥 Télécharger CSV</a>
         <a href="/csv_status" target="_blank" class="btn btn-secondary">📊 Statut CSV</a>
         <a href="/test_csv" target="_blank" class="btn btn-secondary">🧪 Test CSV</a>

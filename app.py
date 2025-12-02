@@ -6,6 +6,7 @@ import datetime
 import random
 import threading
 from werkzeug.utils import secure_filename
+import io
 
 app = Flask(__name__)
 app.secret_key = 'experience_perception_mots_couleurs_2024'
@@ -404,8 +405,12 @@ def admin_dashboard():
     elif 'admin_authenticated' not in session:
         return render_template('admin_login.html')
     
+    imported = request.args.get('imported')
+    skipped = request.args.get('skipped')
+    import_error = request.args.get('import_error')
+
     if not os.path.exists(RESULTS_FILE):
-        return render_template('admin_dashboard.html', results=[], stats={})
+        return render_template('admin_dashboard.html', results=[], stats={}, imported=imported, skipped=skipped, import_error=import_error)
     
     # Lire tous les résultats avec gestion d'erreur
     results = []
@@ -479,7 +484,7 @@ def admin_dashboard():
     participants_list = list(participants.values())
     participants_list.sort(key=lambda x: x['first_timestamp'])
     
-    return render_template('admin_dashboard.html', results=results, stats=stats, participants=participants_list)
+    return render_template('admin_dashboard.html', results=results, stats=stats, participants=participants_list, imported=imported, skipped=skipped, import_error=import_error)
 
 @app.route('/download_results')
 def download_results():
@@ -519,6 +524,76 @@ def csv_status():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/import_csv', methods=['POST'])
+def import_results():
+    if 'admin_authenticated' not in session:
+        return "Accès non autorisé", 403
+    file = request.files.get('file')
+    if file is None or file.filename == '':
+        return redirect(url_for('admin_dashboard', import_error='Aucun fichier sélectionné'))
+    if not file.filename.lower().endswith('.csv'):
+        return redirect(url_for('admin_dashboard', import_error='Format non supporté'))
+    try:
+        init_csv()
+        existing_keys = set()
+        with open(RESULTS_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                key = (
+                    row.get('session_id', ''),
+                    row.get('trial_number', ''),
+                    row.get('stimulus', ''),
+                    row.get('timestamp', ''),
+                )
+                existing_keys.add(key)
+        # Détecter automatiquement le délimiteur (',' ou ';')
+        try:
+            sample_bytes = file.stream.read(4096)
+            sample_text = sample_bytes.decode('utf-8', errors='ignore')
+            dialect = csv.Sniffer().sniff(sample_text)
+            delimiter = dialect.delimiter
+        except Exception:
+            delimiter = ','
+        finally:
+            file.stream.seek(0)
+
+        text_stream = io.TextIOWrapper(file.stream, encoding='utf-8', newline='')
+        reader = csv.DictReader(text_stream, delimiter=delimiter)
+        header = [
+            'session_id', 'participant_id', 'timestamp', 'trial_number', 'block_type',
+            'stimulus', 'response', 'correct', 'reaction_time', 'text_color',
+            'background_color', 'is_word', 'choices_presented'
+        ]
+        imported = 0
+        skipped = 0
+        rows_to_append = []
+        for row in reader:
+            if 'choices_presented' not in row and 'choices' in row:
+                row['choices_presented'] = row.get('choices') or ''
+            key = (
+                row.get('session_id', ''),
+                row.get('trial_number', ''),
+                row.get('stimulus', ''),
+                row.get('timestamp', ''),
+            )
+            if key in existing_keys:
+                skipped += 1
+                continue
+            normalized = [row.get(h, '') for h in header]
+            rows_to_append.append(normalized)
+            existing_keys.add(key)
+            imported += 1
+
+        if rows_to_append:
+            with RESULTS_LOCK:
+                with open(RESULTS_FILE, 'a', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerows(rows_to_append)
+
+        return redirect(url_for('admin_dashboard', imported=imported, skipped=skipped))
+    except Exception as e:
+        return redirect(url_for('admin_dashboard', import_error=str(e)))
 
 def calculate_block_statistics(results):
     """Calcule les statistiques par bloc."""
