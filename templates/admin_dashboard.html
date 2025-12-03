@@ -241,6 +241,28 @@
                 font-size: 0.8rem;
             }
         }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .chart-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #3498db;
+        }
+        .chart-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
     </style>
 </head>
 <body>
@@ -281,6 +303,34 @@
             <div class="stat-label">Temps de réaction moyen</div>
         </div>
         {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if stats or results %}
+    <div class="results-table">
+        <div class="table-header">📈 Visualisations</div>
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Précision par bloc</h3>
+                <div class="chart-container"><canvas id="chartAccuracyByBlock"></canvas></div>
+                <div class="actions"><a href="#" class="btn btn-secondary" onclick="downloadChart('chartAccuracyByBlock','precision_par_bloc');return false;">Exporter PNG</a></div>
+            </div>
+            <div class="chart-card">
+                <h3>Temps de réaction moyen par bloc</h3>
+                <div class="chart-container"><canvas id="chartRtByBlock"></canvas></div>
+                <div class="actions"><a href="#" class="btn btn-secondary" onclick="downloadChart('chartRtByBlock','rt_par_bloc');return false;">Exporter PNG</a></div>
+            </div>
+            <div class="chart-card">
+                <h3>Répartition correct/incorrect par bloc</h3>
+                <div class="chart-container"><canvas id="chartCorrectByBlock"></canvas></div>
+                <div class="actions"><a href="#" class="btn btn-secondary" onclick="downloadChart('chartCorrectByBlock','repartition_correct_incorrect');return false;">Exporter PNG</a></div>
+            </div>
+            <div class="chart-card">
+                <h3>Courbe des temps de réaction par essai</h3>
+                <div class="chart-container"><canvas id="chartRtByTrial"></canvas></div>
+                <div class="actions"><a href="#" class="btn btn-secondary" onclick="downloadChart('chartRtByTrial','rt_par_essai');return false;">Exporter PNG</a></div>
+            </div>
+        </div>
     </div>
     {% endif %}
 
@@ -384,6 +434,90 @@
         <a href="{{ url_for('index') }}" class="btn btn-secondary">🔬 Retour à l'expérience</a>
         <a href="#" onclick="location.reload()" class="btn btn-secondary">🔄 Actualiser</a>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+    const statsData = {{ stats|tojson }};
+    const resultsData = {{ results|tojson }};
+    const blockOrder = ['bw','color','colored_bg'];
+    const blockNames = {'bw':'Bloc 1: Noir/Blanc','color':'Bloc 2: Couleurs','colored_bg':'Bloc 3: Fonds colorés'};
+    const blockColors = {'bw':'#95a5a6','color':'#f39c12','colored_bg':'#e74c3c'};
+    function getLabels() { return blockOrder.map(k => (statsData[k] && statsData[k].name) || blockNames[k]); }
+    function getAccuracies() { return blockOrder.map(k => (statsData[k] && statsData[k].accuracy) || 0); }
+    function getAvgRTs() { return blockOrder.map(k => (statsData[k] && statsData[k].avg_reaction_time) || 0); }
+    function getCorrectIncorrect() {
+        const correct = blockOrder.map(k => (statsData[k] && statsData[k].correct_answers) || 0);
+        const total = blockOrder.map(k => (statsData[k] && statsData[k].total_trials) || 0);
+        const incorrect = total.map((t,i) => Math.max(0, t - correct[i]));
+        return {correct, incorrect};
+    }
+    function computeRtByTrial() {
+        const map = {};
+        for (const r of resultsData || []) {
+            const tn = parseInt(r.trial_number, 10);
+            const rt = parseFloat(r.reaction_time);
+            if (Number.isFinite(tn) && Number.isFinite(rt)) {
+                if (!map[tn]) map[tn] = [];
+                map[tn].push(rt);
+            }
+        }
+        const trials = Object.keys(map).map(n => parseInt(n,10)).sort((a,b)=>a-b);
+        const avg = trials.map(n => {
+            const arr = map[n]; let s = 0; for (const v of arr) s += v; return arr.length ? Math.round(s/arr.length) : 0;
+        });
+        return {trials, avg};
+    }
+    function makeCharts() {
+        const labels = getLabels();
+        const accuracies = getAccuracies();
+        const avgRTs = getAvgRTs();
+        const corrInco = getCorrectIncorrect();
+        const rtt = computeRtByTrial();
+        if (document.getElementById('chartAccuracyByBlock')) {
+            new Chart(document.getElementById('chartAccuracyByBlock'), {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'Précision (%)', data: accuracies, backgroundColor: labels.map((_,i)=>blockColors[blockOrder[i]]) }] },
+                options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
+            });
+        }
+        if (document.getElementById('chartRtByBlock')) {
+            new Chart(document.getElementById('chartRtByBlock'), {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'Temps moyen (ms)', data: avgRTs, backgroundColor: labels.map((_,i)=>blockColors[blockOrder[i]]) }] },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+        }
+        if (document.getElementById('chartCorrectByBlock')) {
+            new Chart(document.getElementById('chartCorrectByBlock'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Correct', data: corrInco.correct, backgroundColor: '#27ae60', stack: 'stack1' },
+                        { label: 'Incorrect', data: corrInco.incorrect, backgroundColor: '#e74c3c', stack: 'stack1' }
+                    ]
+                },
+                options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+            });
+        }
+        if (document.getElementById('chartRtByTrial') && (rtt.trials.length > 0)) {
+            new Chart(document.getElementById('chartRtByTrial'), {
+                type: 'line',
+                data: { labels: rtt.trials, datasets: [{ label: 'Temps de réaction (ms)', data: rtt.avg, tension: 0.25, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.2)', fill: true }] },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+        }
+    }
+    function downloadChart(canvasId, filename) {
+        const el = document.getElementById(canvasId);
+        if (!el) return;
+        const a = document.createElement('a');
+        a.href = el.toDataURL('image/png');
+        a.download = filename + '_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.png';
+        a.click();
+    }
+    document.addEventListener('DOMContentLoaded', makeCharts);
+    </script>
 
     <script>
         // Fonction pour dérouler/enrouler les détails d'un participant
