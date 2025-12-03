@@ -7,12 +7,15 @@ import random
 import threading
 from werkzeug.utils import secure_filename
 import io
+import subprocess
 
 app = Flask(__name__)
 app.secret_key = 'experience_perception_mots_couleurs_2024'
 
 # Configuration
-RESULTS_FILE = 'results.csv'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+RESULTS_FILE = os.path.join(DATA_DIR, 'results.csv')
 RESULTS_LOCK = threading.Lock()
 
 # Mots réels français
@@ -89,6 +92,16 @@ def is_light_color(hex_color):
 
 def init_csv():
     """Initialise le fichier CSV avec les en-têtes si il n'existe pas."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    # Migration: déplacer l'ancien results.csv (racine) vers data/results.csv si présent
+    try:
+        legacy_path = os.path.join(BASE_DIR, 'results.csv')
+        if not os.path.exists(RESULTS_FILE) and os.path.exists(legacy_path):
+            os.replace(legacy_path, RESULTS_FILE)
+            print("ℹ️ Fichier results.csv migré vers data/results.csv")
+    except Exception as _e:
+        # Migration best-effort; on continue même en cas d'échec
+        pass
     if not os.path.exists(RESULTS_FILE):
         with open(RESULTS_FILE, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -132,6 +145,54 @@ def save_result(session_id, participant_id, trial_data):
             ])
             
         print(f"✅ Résultat sauvegardé: {participant_id[:8]}... - {trial_data.get('stimulus', 'N/A')} - {trial_data.get('correct', 'N/A')}")
+    # Lancer un commit git asynchrone (n'impacte pas la réponse HTTP)
+    commit_message = (
+        f"Add result trial={trial_data.get('trial_number','')} "
+        f"block={trial_data.get('block_type','')} stimulus={trial_data.get('stimulus','')}"
+    )
+    commit_results_async(commit_message)
+
+def commit_results_async(message: str = 'Update results.csv'):
+    """Effectue un git add/commit de data/results.csv en tâche de fond.
+    Désactivable via AUTO_COMMIT_RESULTS=0 dans l'environnement.
+    Optionnellement, pousse sur le remote si AUTO_PUSH_RESULTS=1 (best-effort)."""
+    if str(os.environ.get('AUTO_COMMIT_RESULTS', '1')).lower() in ('0', 'false', 'no'):
+        return
+
+    def _worker():
+        try:
+            # Vérifier que l'on est dans un repo git
+            subprocess.run(
+                ['git', 'rev-parse', '--is-inside-work-tree'],
+                cwd=BASE_DIR,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True
+            )
+            rel_path = os.path.relpath(RESULTS_FILE, BASE_DIR)
+            # Ajouter le fichier
+            subprocess.run(
+                ['git', 'add', rel_path],
+                cwd=BASE_DIR,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True
+            )
+            # Tenter un commit; si rien à committer, git renverra un code != 0, on ignore
+            commit_proc = subprocess.run(
+                ['git', '-c', 'user.email=results-bot@local', '-c', 'user.name=Results Bot', 'commit', '-m', message],
+                cwd=BASE_DIR,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            # Push optionnel si demandé et s'il y a eu commit
+            if commit_proc.returncode == 0 and str(os.environ.get('AUTO_PUSH_RESULTS', '0')).lower() in ('1', 'true', 'yes'):
+                subprocess.run(['git', 'pull', '--rebase'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(['git', 'push'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            print(f"⚠️ Auto-commit échoué: {e}")
+
+    threading.Thread(target=_worker, daemon=True).start()
 
 def get_choices(correct_stimulus, n=4, with_color_word=False):
     """Génère des choix cohérents : mots avec mots, non-mots avec non-mots."""
@@ -590,6 +651,8 @@ def import_results():
                 with open(RESULTS_FILE, 'a', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
                     writer.writerows(rows_to_append)
+            # Auto-commit après import si des lignes ont été ajoutées
+            commit_results_async(f"Import {imported} results from CSV")
 
         return redirect(url_for('admin_dashboard', imported=imported, skipped=skipped))
     except Exception as e:
