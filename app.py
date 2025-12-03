@@ -90,9 +90,45 @@ def is_light_color(hex_color):
     luminance = (0.299 * r + 0.587 * g + 0.114 * b)
     return luminance > 128
 
+def recover_results_from_git():
+    """Récupère le fichier results.csv depuis Git si absent localement."""
+    if os.path.exists(RESULTS_FILE):
+        return  # Fichier existe déjà
+    
+    try:
+        # Vérifier que nous sommes dans un repo git
+        subprocess.run(
+            ['git', 'rev-parse', '--is-inside-work-tree'],
+            cwd=BASE_DIR,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+        
+        # Essayer de récupérer le fichier depuis Git
+        result = subprocess.run(
+            ['git', 'show', 'HEAD:data/results.csv'],
+            cwd=BASE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            # Créer le dossier s'il n'existe pas
+            os.makedirs(DATA_DIR, exist_ok=True)
+            # Écrire le fichier récupéré
+            with open(RESULTS_FILE, 'w', encoding='utf-8') as f:
+                f.write(result.stdout)
+            print(f"✅ Fichier results.csv récupéré depuis Git ({len(result.stdout)} bytes)")
+            return
+    except Exception as e:
+        print(f"ℹ️ Impossible de récupérer results.csv depuis Git: {e}")
+
 def init_csv():
     """Initialise le fichier CSV avec les en-têtes si il n'existe pas."""
     os.makedirs(DATA_DIR, exist_ok=True)
+    
     # Migration: déplacer l'ancien results.csv (racine) vers data/results.csv si présent
     try:
         legacy_path = os.path.join(BASE_DIR, 'results.csv')
@@ -100,8 +136,13 @@ def init_csv():
             os.replace(legacy_path, RESULTS_FILE)
             print("ℹ️ Fichier results.csv migré vers data/results.csv")
     except Exception as _e:
-        # Migration best-effort; on continue même en cas d'échec
         pass
+    
+    # Essayer de récupérer depuis Git si le fichier n'existe pas
+    if not os.path.exists(RESULTS_FILE):
+        recover_results_from_git()
+    
+    # Créer le fichier s'il n'existe toujours pas
     if not os.path.exists(RESULTS_FILE):
         with open(RESULTS_FILE, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -110,6 +151,7 @@ def init_csv():
                 'stimulus', 'response', 'correct', 'reaction_time', 'text_color', 
                 'background_color', 'is_word', 'choices_presented'
             ])
+        print(f"✅ Nouveau fichier CSV créé: {RESULTS_FILE}")
 
 def save_result(session_id, participant_id, trial_data):
     """Sauvegarde un résultat dans le fichier CSV de manière thread-safe."""
@@ -152,10 +194,11 @@ def save_result(session_id, participant_id, trial_data):
     )
     commit_results_async(commit_message)
 
-def commit_results_async(message: str = 'Update results.csv'):
+def commit_results_async(message: str = 'Update results.csv', force_commit: bool = False):
     """Effectue un git add/commit de data/results.csv en tâche de fond.
     Désactivable via AUTO_COMMIT_RESULTS=0 dans l'environnement.
-    Optionnellement, pousse sur le remote si AUTO_PUSH_RESULTS=1 (best-effort)."""
+    Optionnellement, pousse sur le remote si AUTO_PUSH_RESULTS=1 (best-effort).
+    Si force_commit=True, force le commit même s'il n'y a pas de changements."""
     if str(os.environ.get('AUTO_COMMIT_RESULTS', '1')).lower() in ('0', 'false', 'no'):
         return
 
@@ -170,6 +213,7 @@ def commit_results_async(message: str = 'Update results.csv'):
                 check=True
             )
             rel_path = os.path.relpath(RESULTS_FILE, BASE_DIR)
+            
             # Ajouter le fichier
             subprocess.run(
                 ['git', 'add', rel_path],
@@ -178,17 +222,30 @@ def commit_results_async(message: str = 'Update results.csv'):
                 stderr=subprocess.DEVNULL,
                 check=True
             )
-            # Tenter un commit; si rien à committer, git renverra un code != 0, on ignore
+            
+            # Tenter un commit
+            commit_args = ['git', '-c', 'user.email=results-bot@local', '-c', 'user.name=Results Bot', 'commit', '-m', message]
+            if force_commit:
+                commit_args.append('--allow-empty')
+            
             commit_proc = subprocess.run(
-                ['git', '-c', 'user.email=results-bot@local', '-c', 'user.name=Results Bot', 'commit', '-m', message],
+                commit_args,
                 cwd=BASE_DIR,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
+            
             # Push optionnel si demandé et s'il y a eu commit
             if commit_proc.returncode == 0 and str(os.environ.get('AUTO_PUSH_RESULTS', '0')).lower() in ('1', 'true', 'yes'):
-                subprocess.run(['git', 'pull', '--rebase'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                subprocess.run(['git', 'push'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                try:
+                    subprocess.run(['git', 'pull', '--rebase'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                    subprocess.run(['git', 'push'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                    print(f"✅ Données pushées vers le remote")
+                except Exception as push_error:
+                    print(f"⚠️ Push échoué: {push_error}")
+            
+            if commit_proc.returncode == 0:
+                print(f"✅ Commit effectué: {message}")
         except Exception as e:
             print(f"⚠️ Auto-commit échoué: {e}")
 
@@ -652,7 +709,10 @@ def import_results():
                     writer = csv.writer(f)
                     writer.writerows(rows_to_append)
             # Auto-commit après import si des lignes ont été ajoutées
-            commit_results_async(f"Import {imported} results from CSV")
+            commit_results_async(f"Import {imported} results from CSV", force_commit=True)
+            print(f"📥 Import terminé: {imported} lignes ajoutées, {skipped} doublons ignorés")
+        else:
+            print(f"📥 Import terminé: aucune nouvelle ligne (tous les {skipped} enregistrements existaient déjà)")
 
         return redirect(url_for('admin_dashboard', imported=imported, skipped=skipped))
     except Exception as e:
