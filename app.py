@@ -252,6 +252,7 @@ def commit_results_sync(message: str = 'Update results.csv', force_commit: bool 
         
         # Priorité: push via GitHub API (plus fiable sur Render)
         if gh_token and gh_owner and gh_repo:
+            print(f"ℹ️ Tentative push GitHub API (sync) vers {gh_owner}/{gh_repo}/{gh_branch}")
             try:
                 path = 'data/results.csv'
                 get_url = f"https://api.github.com/repos/{gh_owner}/{gh_repo}/contents/{path}?ref={gh_branch}"
@@ -264,6 +265,7 @@ def commit_results_sync(message: str = 'Update results.csv', force_commit: bool 
                 r = requests.get(get_url, headers=headers, timeout=10)
                 if r.status_code == 200 and isinstance(r.json(), dict):
                     sha = r.json().get('sha')
+                    print(f"ℹ️ SHA récupéré: {sha[:8]}...")
                 with open(RESULTS_FILE, 'rb') as rf:
                     content_b64 = base64.b64encode(rf.read()).decode('ascii')
                 payload = {
@@ -279,6 +281,7 @@ def commit_results_sync(message: str = 'Update results.csv', force_commit: bool 
                     print(f"✅ Données pushées vers GitHub (sync): {message}")
                     return
                 else:
+                    print(f"⚠️ Premier PUT échoué ({pr.status_code}), retry...")
                     # Retry: récupérer le SHA et réessayer
                     r2 = requests.get(get_url, headers=headers, timeout=10)
                     if r2.status_code == 200 and isinstance(r2.json(), dict):
@@ -288,9 +291,13 @@ def commit_results_sync(message: str = 'Update results.csv', force_commit: bool 
                             print(f"✅ Données pushées vers GitHub (sync, retry): {message}")
                             return
                         else:
-                            print(f"⚠️ Push GitHub échoué (sync): {pr2.status_code}")
+                            print(f"⚠️ Push GitHub échoué (sync, retry): {pr2.status_code}")
+                    else:
+                        print(f"⚠️ Récupération SHA échouée (retry): {r2.status_code}")
             except Exception as e:
                 print(f"⚠️ Push GitHub exception (sync): {e}")
+        else:
+            print(f"ℹ️ GitHub API non configuré (token={bool(gh_token)}, owner={bool(gh_owner)}, repo={bool(gh_repo)})")
         
         # Fallback: git push local
         try:
@@ -314,14 +321,20 @@ def commit_results_sync(message: str = 'Update results.csv', force_commit: bool 
             commit_proc = subprocess.run(
                 commit_args,
                 cwd=BASE_DIR,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                capture_output=True,
+                text=True
             )
             if commit_proc.returncode == 0:
                 print(f"✅ Commit effectué (sync): {message}")
-                subprocess.run(['git', 'pull', '--rebase'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-                subprocess.run(['git', 'push'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-                print(f"✅ Données pushées vers le remote (sync)")
+                pull_proc = subprocess.run(['git', 'pull', '--rebase'], cwd=BASE_DIR, capture_output=True, text=True, timeout=10)
+                print(f"ℹ️ Git pull: {pull_proc.stdout or pull_proc.stderr}")
+                push_proc = subprocess.run(['git', 'push'], cwd=BASE_DIR, capture_output=True, text=True, timeout=10)
+                if push_proc.returncode == 0:
+                    print(f"✅ Données pushées vers le remote (sync)")
+                else:
+                    print(f"⚠️ Git push échoué: {push_proc.stderr}")
+            else:
+                print(f"ℹ️ Pas de changements à committer ou erreur: {commit_proc.stderr}")
         except Exception as e:
             print(f"⚠️ Commit/push local échoué (sync): {e}")
     except Exception as e:
