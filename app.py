@@ -230,7 +230,102 @@ def save_result(session_id, participant_id, trial_data):
         f"Add result trial={trial_data.get('trial_number','')} "
         f"block={trial_data.get('block_type','')} stimulus={trial_data.get('stimulus','')}"
     )
-    commit_results_async(commit_message)
+    # Sur Render: forcer le push synchrone pour éviter la perte de données lors de la mise en veille
+    if str(os.environ.get('AUTO_PUSH_RESULTS', '0')).lower() in ('1', 'true', 'yes'):
+        commit_results_sync(commit_message)
+    else:
+        commit_results_async(commit_message)
+
+def commit_results_sync(message: str = 'Update results.csv', force_commit: bool = False):
+    """Effectue un git add/commit/push de data/results.csv de manière SYNCHRONE (bloquante).
+    Utilisé sur Render pour garantir la persistance avant mise en veille.
+    Désactivable via AUTO_COMMIT_RESULTS=0 dans l'environnement."""
+    if str(os.environ.get('AUTO_COMMIT_RESULTS', '1')).lower() in ('0', 'false', 'no'):
+        return
+    
+    try:
+        rel_path = os.path.relpath(RESULTS_FILE, BASE_DIR)
+        gh_token = os.environ.get('GITHUB_TOKEN')
+        gh_owner = os.environ.get('GITHUB_OWNER')
+        gh_repo = os.environ.get('GITHUB_REPO')
+        gh_branch = os.environ.get('GITHUB_BRANCH', 'main')
+        
+        # Priorité: push via GitHub API (plus fiable sur Render)
+        if gh_token and gh_owner and gh_repo:
+            try:
+                path = 'data/results.csv'
+                get_url = f"https://api.github.com/repos/{gh_owner}/{gh_repo}/contents/{path}?ref={gh_branch}"
+                put_url = f"https://api.github.com/repos/{gh_owner}/{gh_repo}/contents/{path}"
+                headers = {
+                    'Authorization': f'Bearer {gh_token}',
+                    'Accept': 'application/vnd.github+json'
+                }
+                sha = None
+                r = requests.get(get_url, headers=headers, timeout=10)
+                if r.status_code == 200 and isinstance(r.json(), dict):
+                    sha = r.json().get('sha')
+                with open(RESULTS_FILE, 'rb') as rf:
+                    content_b64 = base64.b64encode(rf.read()).decode('ascii')
+                payload = {
+                    'message': message,
+                    'content': content_b64,
+                    'branch': gh_branch,
+                    'committer': {'name': 'Results Bot', 'email': 'results-bot@local'}
+                }
+                if sha:
+                    payload['sha'] = sha
+                pr = requests.put(put_url, headers=headers, json=payload, timeout=20)
+                if pr.status_code in (200, 201):
+                    print(f"✅ Données pushées vers GitHub (sync): {message}")
+                    return
+                else:
+                    # Retry: récupérer le SHA et réessayer
+                    r2 = requests.get(get_url, headers=headers, timeout=10)
+                    if r2.status_code == 200 and isinstance(r2.json(), dict):
+                        payload['sha'] = r2.json().get('sha')
+                        pr2 = requests.put(put_url, headers=headers, json=payload, timeout=20)
+                        if pr2.status_code in (200, 201):
+                            print(f"✅ Données pushées vers GitHub (sync, retry): {message}")
+                            return
+                        else:
+                            print(f"⚠️ Push GitHub échoué (sync): {pr2.status_code}")
+            except Exception as e:
+                print(f"⚠️ Push GitHub exception (sync): {e}")
+        
+        # Fallback: git push local
+        try:
+            subprocess.run(
+                ['git', 'rev-parse', '--is-inside-work-tree'],
+                cwd=BASE_DIR,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True
+            )
+            subprocess.run(
+                ['git', 'add', rel_path],
+                cwd=BASE_DIR,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True
+            )
+            commit_args = ['git', '-c', 'user.email=results-bot@local', '-c', 'user.name=Results Bot', 'commit', '-m', message]
+            if force_commit:
+                commit_args.append('--allow-empty')
+            commit_proc = subprocess.run(
+                commit_args,
+                cwd=BASE_DIR,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            if commit_proc.returncode == 0:
+                print(f"✅ Commit effectué (sync): {message}")
+                subprocess.run(['git', 'pull', '--rebase'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                subprocess.run(['git', 'push'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                print(f"✅ Données pushées vers le remote (sync)")
+        except Exception as e:
+            print(f"⚠️ Commit/push local échoué (sync): {e}")
+    except Exception as e:
+        print(f"⚠️ commit_results_sync échoué: {e}")
 
 def commit_results_async(message: str = 'Update results.csv', force_commit: bool = False):
     """Effectue un git add/commit de data/results.csv en tâche de fond.
