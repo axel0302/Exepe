@@ -8,6 +8,8 @@ import threading
 from werkzeug.utils import secure_filename
 import io
 import subprocess
+import base64
+import requests
 
 app = Flask(__name__)
 app.secret_key = 'experience_perception_mots_couleurs_2024'
@@ -124,6 +126,26 @@ def recover_results_from_git():
             return
     except Exception as e:
         print(f"ℹ️ Impossible de récupérer results.csv depuis Git: {e}")
+    
+    try:
+        owner = os.environ.get('GITHUB_OWNER')
+        repo = os.environ.get('GITHUB_REPO')
+        branch = os.environ.get('GITHUB_BRANCH', 'main')
+        token = os.environ.get('GITHUB_TOKEN')
+        if owner and repo and branch:
+            url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/data/results.csv"
+            headers = {}
+            if token:
+                headers['Authorization'] = f"Bearer {token}"
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200 and resp.text:
+                os.makedirs(DATA_DIR, exist_ok=True)
+                with open(RESULTS_FILE, 'w', encoding='utf-8') as f:
+                    f.write(resp.text)
+                print("✅ Fichier results.csv récupéré via GitHub raw")
+                return
+    except Exception as e:
+        print(f"ℹ️ Impossible de récupérer results.csv via GitHub raw: {e}")
 
 def init_csv():
     """Initialise le fichier CSV avec les en-têtes si il n'existe pas."""
@@ -185,6 +207,8 @@ def save_result(session_id, participant_id, trial_data):
                 trial_data.get('is_word', False),
                 choices_str
             ])
+            f.flush()
+            os.fsync(f.fileno())
             
         print(f"✅ Résultat sauvegardé: {participant_id[:8]}... - {trial_data.get('stimulus', 'N/A')} - {trial_data.get('correct', 'N/A')}")
     # Lancer un commit git asynchrone (n'impacte pas la réponse HTTP)
@@ -204,48 +228,96 @@ def commit_results_async(message: str = 'Update results.csv', force_commit: bool
 
     def _worker():
         try:
-            # Vérifier que l'on est dans un repo git
-            subprocess.run(
-                ['git', 'rev-parse', '--is-inside-work-tree'],
-                cwd=BASE_DIR,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True
-            )
             rel_path = os.path.relpath(RESULTS_FILE, BASE_DIR)
-            
-            # Ajouter le fichier
-            subprocess.run(
-                ['git', 'add', rel_path],
-                cwd=BASE_DIR,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True
-            )
-            
-            # Tenter un commit
-            commit_args = ['git', '-c', 'user.email=results-bot@local', '-c', 'user.name=Results Bot', 'commit', '-m', message]
-            if force_commit:
-                commit_args.append('--allow-empty')
-            
-            commit_proc = subprocess.run(
-                commit_args,
-                cwd=BASE_DIR,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
-            
-            # Push optionnel si demandé et s'il y a eu commit
-            if commit_proc.returncode == 0 and str(os.environ.get('AUTO_PUSH_RESULTS', '0')).lower() in ('1', 'true', 'yes'):
+
+            # Tentative de push via GitHub API si configuré
+            auto_push = str(os.environ.get('AUTO_PUSH_RESULTS', '0')).lower() in ('1', 'true', 'yes')
+            gh_token = os.environ.get('GITHUB_TOKEN')
+            gh_owner = os.environ.get('GITHUB_OWNER')
+            gh_repo = os.environ.get('GITHUB_REPO')
+            gh_branch = os.environ.get('GITHUB_BRANCH', 'main')
+            used_github_api = False
+            if auto_push and gh_token and gh_owner and gh_repo:
                 try:
-                    subprocess.run(['git', 'pull', '--rebase'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-                    subprocess.run(['git', 'push'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-                    print(f"✅ Données pushées vers le remote")
-                except Exception as push_error:
-                    print(f"⚠️ Push échoué: {push_error}")
-            
-            if commit_proc.returncode == 0:
-                print(f"✅ Commit effectué: {message}")
+                    path = 'data/results.csv'
+                    get_url = f"https://api.github.com/repos/{gh_owner}/{gh_repo}/contents/{path}?ref={gh_branch}"
+                    put_url = f"https://api.github.com/repos/{gh_owner}/{gh_repo}/contents/{path}"
+                    headers = {
+                        'Authorization': f'Bearer {gh_token}',
+                        'Accept': 'application/vnd.github+json'
+                    }
+                    sha = None
+                    r = requests.get(get_url, headers=headers, timeout=10)
+                    if r.status_code == 200 and isinstance(r.json(), dict):
+                        sha = r.json().get('sha')
+                    with open(RESULTS_FILE, 'rb') as rf:
+                        content_b64 = base64.b64encode(rf.read()).decode('ascii')
+                    payload = {
+                        'message': message,
+                        'content': content_b64,
+                        'branch': gh_branch,
+                        'committer': {'name': 'Results Bot', 'email': 'results-bot@local'}
+                    }
+                    if sha:
+                        payload['sha'] = sha
+                    pr = requests.put(put_url, headers=headers, json=payload, timeout=20)
+                    if pr.status_code in (200, 201):
+                        print("✅ Données pushées vers GitHub")
+                        used_github_api = True
+                    else:
+                        try:
+                            r2 = requests.get(get_url, headers=headers, timeout=10)
+                            if r2.status_code == 200 and isinstance(r2.json(), dict):
+                                payload['sha'] = r2.json().get('sha')
+                                pr2 = requests.put(put_url, headers=headers, json=payload, timeout=20)
+                                if pr2.status_code in (200, 201):
+                                    print("✅ Données pushées vers GitHub")
+                                    used_github_api = True
+                                else:
+                                    print(f"⚠️ Push GitHub échoué: {pr2.status_code}")
+                            else:
+                                print(f"⚠️ Récupération SHA GitHub échouée: {r2.status_code}")
+                        except Exception:
+                            print("⚠️ Retry push GitHub échoué")
+                except Exception as e:
+                    print(f"⚠️ Push GitHub exception: {e}")
+
+            # Commit local via git si repo présent (utile en dev local)
+            try:
+                subprocess.run(
+                    ['git', 'rev-parse', '--is-inside-work-tree'],
+                    cwd=BASE_DIR,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=True
+                )
+                subprocess.run(
+                    ['git', 'add', rel_path],
+                    cwd=BASE_DIR,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=True
+                )
+                commit_args = ['git', '-c', 'user.email=results-bot@local', '-c', 'user.name=Results Bot', 'commit', '-m', message]
+                if force_commit:
+                    commit_args.append('--allow-empty')
+                commit_proc = subprocess.run(
+                    commit_args,
+                    cwd=BASE_DIR,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                if commit_proc.returncode == 0:
+                    print(f"✅ Commit effectué: {message}")
+                    if auto_push and not used_github_api:
+                        try:
+                            subprocess.run(['git', 'pull', '--rebase'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                            subprocess.run(['git', 'push'], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                            print(f"✅ Données pushées vers le remote")
+                        except Exception as push_error:
+                            print(f"⚠️ Push échoué: {push_error}")
+            except Exception:
+                pass
         except Exception as e:
             print(f"⚠️ Auto-commit échoué: {e}")
 
