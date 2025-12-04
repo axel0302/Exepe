@@ -598,7 +598,7 @@ def admin_dashboard():
     imported = request.args.get('imported')
     skipped = request.args.get('skipped')
     import_error = request.args.get('import_error')
-
+    init_csv()
     if not os.path.exists(RESULTS_FILE):
         return render_template('admin_dashboard.html', results=[], stats={}, imported=imported, skipped=skipped, import_error=import_error)
     
