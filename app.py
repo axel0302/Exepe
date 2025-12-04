@@ -160,6 +160,20 @@ def init_csv():
     except Exception as _e:
         pass
     
+    # Migration: renommer un ancien fichier data/experience_results.csv en data/results.csv
+    try:
+        legacy_exp_path = os.path.join(DATA_DIR, 'experience_results.csv')
+        if not os.path.exists(RESULTS_FILE) and os.path.exists(legacy_exp_path):
+            os.replace(legacy_exp_path, RESULTS_FILE)
+            print("ℹ️ Fichier experience_results.csv migré vers data/results.csv")
+            # Committer la migration pour persister côté Git si auto-commit actif
+            try:
+                commit_results_async("Migrate experience_results.csv to data/results.csv", force_commit=True)
+            except Exception:
+                pass
+    except Exception as _e:
+        pass
+    
     # Essayer de récupérer depuis Git si le fichier n'existe pas
     if not os.path.exists(RESULTS_FILE):
         recover_results_from_git()
