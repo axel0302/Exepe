@@ -18,6 +18,8 @@ Cette application web permet de mener l'expérience de perception des mots en li
 ```
 web_app/
 ├── app.py                 # Serveur Flask principal
+data/
+	fichier.csv
 ├── templates/
 │   └── index.html        # Interface utilisateur
 ├── static/
